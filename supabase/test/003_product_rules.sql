@@ -1,0 +1,10 @@
+create extension if not exists pgtap;
+begin;
+select plan(5);
+select is((select enum_range(null::public.room_kind)::text),'{personal,commons}','room kind uses commons terminology');
+select is((select count(*)::integer from private.basic_questions where active),20,'basic question bank has 20 active questions');
+select is((select count(*)::integer from private.basic_questions where active and points=10),20,'basic questions use 10 points each');
+select ok(exists(select 1 from pg_constraint where conname='personal_room_goal'),'personal room goal constraint exists');
+select ok(exists(select 1 from cron.job where jobname='studyworld-personal-room-archive'),'14-day room archive job exists');
+select * from finish();
+rollback;

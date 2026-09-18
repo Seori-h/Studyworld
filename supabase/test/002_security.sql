@@ -1,0 +1,17 @@
+create extension if not exists pgtap;
+begin;
+select plan(12);
+select ok((select relrowsecurity from pg_class where oid='public.profiles'::regclass),'profiles RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.rooms'::regclass),'rooms RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.materials'::regclass),'materials RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.curricula'::regclass),'curricula RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.curriculum_items'::regclass),'curriculum items RLS enabled');
+select ok(not has_table_privilege('anon','public.rooms','select'),'anon cannot read rooms table');
+select ok(not has_table_privilege('anon','public.materials','select'),'anon cannot read materials table');
+select ok(not has_table_privilege('authenticated','public.rooms','insert'),'member cannot bypass room creation RPC');
+select ok(has_function_privilege('anon','public.get_basic_leaderboard(integer)','execute'),'anon can read public leaderboard');
+select ok(not has_function_privilege('anon','public.start_basic_test(text,text)','execute'),'anon cannot forge basic test actor');
+select ok(not has_function_privilege('authenticated','public.submit_basic_answer(text,text,uuid,uuid,smallint)','execute'),'member cannot invoke authoritative scoring directly');
+select ok(not has_function_privilege('anon','public.submit_support_ticket(text,text,uuid,text,text,text)','execute'),'support writes are Worker-only');
+select * from finish();
+rollback;

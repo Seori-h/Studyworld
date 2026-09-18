@@ -1,0 +1,17 @@
+create extension if not exists pgtap;
+begin;
+select plan(12);
+select has_table('public','rooms','rooms exists');
+select has_table('public','materials','materials exists');
+select has_table('public','curricula','curricula exists');
+select has_table('public','curriculum_items','curriculum items exists');
+select has_table('private','basic_questions','basic questions are private');
+select has_table('private','basic_test_runs','basic test runs are private');
+select has_table('private','support_tickets','support tickets are private');
+select has_function('public','start_basic_test',array['text','text'],'basic test start RPC exists');
+select has_function('public','submit_basic_answer',array['text','text','uuid','uuid','smallint'],'basic answer RPC exists');
+select has_function('public','get_basic_leaderboard',array['integer'],'leaderboard RPC exists');
+select has_function('public','create_personal_room',array['text','date','text','text','smallint'],'personal room creation RPC exists');
+select col_is_pk('public','rooms','id','rooms id is primary key');
+select * from finish();
+rollback;
