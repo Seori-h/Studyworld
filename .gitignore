@@ -1,0 +1,135 @@
+# STUDYWORLD — deny-by-default for local secrets and generated state
+
+# Dependencies / package-manager state
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+.pnpmfile.cjs
+.npmrc
+.npmrc.*
+.yarnrc
+.yarnrc.*
+.yarn/
+.pnp.*
+
+# Environment / local runtime values — never commit
+.env
+.env.*
+*.env
+*.env.*
+.dev.vars
+.dev.vars.*
+*.dev.vars
+*.dev.vars.*
+!.envrc.example
+
+# Secret / credential / certificate material
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.crt
+*.cer
+*.der
+*.csr
+*.token
+*.tokens
+*.secret
+*.secrets
+*.credentials
+secrets/
+.secret/
+.credentials/
+credentials/
+credentials.json
+service-account*.json
+*-service-account.json
+account-key*.json
+private-key*
+id_rsa*
+id_ed25519*
+
+# Cloudflare local state
+.wrangler/
+wrangler.toml.local
+wrangler.json.local
+wrangler.jsonc.local
+
+# Supabase local / temporary state
+supabase/.branches/
+supabase/.temp/
+supabase/.supabase/
+supabase/.env
+supabase/.env.*
+.supabase/
+
+# Build / cache / generated output
+dist/
+build/
+.vite/
+.cache/
+.parcel-cache/
+.turbo/
+.nx/
+*.tsbuildinfo
+*.local
+
+# Test / QA / browser automation output
+coverage/
+.lighthouseci/
+lighthouse-report*/
+reports/
+playwright-report/
+test-results/
+blob-report/
+.nyc_output/
+
+# Local databases / dumps / backups
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.dump
+*.backup
+*.bak
+*.sql.gz
+*.tar.gz
+
+# Logs / diagnostics
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Editor / IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*.swn
+*~
+
+# OS metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Desktop.ini
+
+# Local scratch
+.tmp/
+tmp/
+.temp/
+.local/
+scratch/
