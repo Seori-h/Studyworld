@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useState,
+} from 'react';
 
 import type {
   Room,
@@ -33,16 +36,29 @@ export function Rooms({
 }: {
   session: SessionState;
 }) {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [goal, setGoal] = useState('');
-  const [dDay, setDDay] = useState('');
-  const [template, setTemplate] = useState('');
-  const [studyStyle, setStudyStyle] = useState('');
-  const [duration, setDuration] = useState<
-    number | null
-  >(40);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [rooms, setRooms] =
+    useState<Room[]>([]);
+
+  const [goal, setGoal] =
+    useState('');
+
+  const [dDay, setDDay] =
+    useState('');
+
+  const [template, setTemplate] =
+    useState('');
+
+  const [studyStyle, setStudyStyle] =
+    useState('');
+
+  const [duration, setDuration] =
+    useState<number | null>(40);
+
+  const [busy, setBusy] =
+    useState(false);
+
+  const [error, setError] =
+    useState('');
 
   useEffect(() => {
     if (session.kind !== 'member') {
@@ -50,20 +66,34 @@ export function Rooms({
       return;
     }
 
-    void api
+    let active = true;
+
+    api
       .get<Room[]>('/api/v1/rooms')
-      .then(setRooms)
-      .catch(() =>
-        setError(
-          '학습공간을 불러오지 못했습니다.',
-        ),
-      );
+      .then((data) => {
+        if (active) {
+          setRooms(data);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setError(
+            '학습공간을 불러오지 못했습니다.',
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, [session.kind]);
 
   const create = async () => {
     const value = goal.trim();
 
-    if (!value || busy) return;
+    if (!value || busy) {
+      return;
+    }
 
     setBusy(true);
     setError('');
@@ -75,12 +105,17 @@ export function Rooms({
           goal: value,
           d_day: dDay || null,
           template_key: template || null,
-          study_style: studyStyle || null,
+          study_style:
+            studyStyle || null,
           duration_minutes: duration,
         },
       );
 
-      setRooms((items) => [room, ...items]);
+      setRooms((items) => [
+        room,
+        ...items,
+      ]);
+
       setGoal('');
       setDDay('');
       setTemplate('');
@@ -116,8 +151,9 @@ export function Rooms({
           </h1>
 
           <p className="page-copy">
-            자료 없이 목표만으로 바로 시작하고, 필요한
-            자료는 만든 뒤 추가할 수 있습니다.
+            자료 없이 목표만으로 바로
+            시작하고, 필요한 자료는 만든 뒤
+            추가할 수 있습니다.
           </p>
         </div>
 
@@ -125,7 +161,8 @@ export function Rooms({
           ACTIVE{' '}
           {
             rooms.filter(
-              (room) => room.state === 'active',
+              (room) =>
+                room.state === 'active',
             ).length
           }{' '}
           / 5
@@ -156,22 +193,27 @@ export function Rooms({
         </div>
 
         <div className="template-strip">
-          {templates.map(([key, label]) => (
-            <button
-              type="button"
-              key={key}
-              className={
-                template === key
-                  ? 'is-selected'
-                  : ''
-              }
-              onClick={() =>
-                chooseTemplate(key, label)
-              }
-            >
-              {label}
-            </button>
-          ))}
+          {templates.map(
+            ([key, label]) => (
+              <button
+                type="button"
+                key={key}
+                className={
+                  template === key
+                    ? 'is-selected'
+                    : ''
+                }
+                onClick={() =>
+                  chooseTemplate(
+                    key,
+                    label,
+                  )
+                }
+              >
+                {label}
+              </button>
+            ),
+          )}
         </div>
 
         <div className="form-grid">
@@ -185,33 +227,38 @@ export function Rooms({
               type="date"
               value={dDay}
               onChange={(event) =>
-                setDDay(event.target.value)
+                setDDay(
+                  event.target.value,
+                )
               }
             />
           </div>
 
           <div className="field">
             <label>
-              학습 시간 <small>선택</small>
+              학습 시간{' '}
+              <small>선택</small>
             </label>
 
             <div className="segmented">
-              {[20, 40, 60].map((value) => (
-                <button
-                  type="button"
-                  className={
-                    duration === value
-                      ? 'is-selected'
-                      : ''
-                  }
-                  key={value}
-                  onClick={() =>
-                    setDuration(value)
-                  }
-                >
-                  {value}분
-                </button>
-              ))}
+              {[20, 40, 60].map(
+                (value) => (
+                  <button
+                    type="button"
+                    className={
+                      duration === value
+                        ? 'is-selected'
+                        : ''
+                    }
+                    key={value}
+                    onClick={() =>
+                      setDuration(value)
+                    }
+                  >
+                    {value}분
+                  </button>
+                ),
+              )}
             </div>
           </div>
         </div>
@@ -219,7 +266,9 @@ export function Rooms({
         <div className="field">
           <span className="field-label">
             공부 방식{' '}
-            <small>선택 또는 직접 입력</small>
+            <small>
+              선택 또는 직접 입력
+            </small>
           </span>
 
           <div className="choice-chips">
@@ -244,7 +293,9 @@ export function Rooms({
           <input
             value={studyStyle}
             onChange={(event) =>
-              setStudyStyle(event.target.value)
+              setStudyStyle(
+                event.target.value,
+              )
             }
             maxLength={80}
             placeholder="예: 틀린 문제는 다음 날 다시 보여줘"
@@ -255,19 +306,28 @@ export function Rooms({
           <strong>
             자료는 나중에 추가해도 됩니다.
           </strong>
+
           <span>
-            PDF · URL · 공공 아카이브는 선택 사항이며,
-            기본 ROOM 생성은 외부 AI 없이 동작합니다.
+            PDF · URL · 공공 아카이브는
+            선택 사항이며, 기본 ROOM 생성은
+            외부 AI 없이 동작합니다.
           </span>
         </div>
 
         {error && (
-          <p className="form-error" role="alert">
+          <p
+            className="form-error"
+            role="alert"
+          >
             {error}
           </p>
         )}
 
-        <Button disabled={!goal.trim() || busy}>
+        <Button
+          disabled={
+            !goal.trim() || busy
+          }
+        >
           {busy
             ? '만드는 중…'
             : '학습공간 만들기'}
@@ -280,33 +340,29 @@ export function Rooms({
             key={room.id}
             className="room-row"
             onClick={() =>
-              navigate(`/rooms/${room.id}`)
+              navigate(
+                `/rooms/${room.id}`,
+              )
             }
           >
             <span>
               <small>
-                {room.state === 'archived'
+                {room.state ===
+                'archived'
                   ? '보관됨'
                   : '개인 학습공간'}
               </small>
 
-              <strong>{room.title}</strong>
+              <strong>
+                {room.title}
+              </strong>
 
               <em>
                 {room.study_style
                   || '기본 학습 틀'}
 
                 {room.d_day
-                  ? ` · D-${Math.max(
-                      0,
-                      Math.ceil(
-                        (new Date(
-                          room.d_day,
-                        ).getTime()
-                          - Date.now())
-                          / 86400000,
-                      ),
-                    )}`
+                  ? ` · D-Day ${room.d_day}`
                   : ''}
               </em>
             </span>
@@ -317,8 +373,9 @@ export function Rooms({
 
         {!rooms.length && (
           <div className="empty-state">
-            아직 학습공간이 없습니다. 목표 하나로
-            첫 공간을 만들어보세요.
+            아직 학습공간이 없습니다.
+            목표 하나로 첫 공간을
+            만들어보세요.
           </div>
         )}
       </div>

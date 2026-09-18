@@ -30,28 +30,40 @@ interface Curriculum {
   curriculum_items: CurriculumItem[];
 }
 
+interface RoomData {
+  room: Room;
+  materials: Material[];
+  curricula: Curriculum[];
+}
+
 export function RoomDetail({
   id,
 }: {
   id: string;
 }) {
-  const [room, setRoom] = useState<Room | null>(null);
-  const [materials, setMaterials] = useState<
-    Material[]
-  >([]);
-  const [curricula, setCurricula] = useState<
-    Curriculum[]
-  >([]);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState('');
+  const [room, setRoom] =
+    useState<Room | null>(null);
+
+  const [materials, setMaterials] =
+    useState<Material[]>([]);
+
+  const [curricula, setCurricula] =
+    useState<Curriculum[]>([]);
+
+  const [uploading, setUploading] =
+    useState(false);
+
+  const [error, setError] =
+    useState('');
 
   const load = useCallback(async () => {
     try {
-      const data = await api.get<{
-        room: Room;
-        materials: Material[];
-        curricula: Curriculum[];
-      }>(`/api/v1/rooms/${encodeURIComponent(id)}`);
+      const data =
+        await api.get<RoomData>(
+          `/api/v1/rooms/${encodeURIComponent(
+            id,
+          )}`,
+        );
 
       setRoom(data.room);
       setMaterials(data.materials);
@@ -66,10 +78,43 @@ export function RoomDetail({
   }, [id]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let active = true;
 
-  const upload = async (file?: File) => {
+    api
+      .get<RoomData>(
+        `/api/v1/rooms/${encodeURIComponent(
+          id,
+        )}`,
+      )
+      .then((data) => {
+        if (!active) {
+          return;
+        }
+
+        setRoom(data.room);
+        setMaterials(data.materials);
+        setCurricula(data.curricula);
+      })
+      .catch((cause: unknown) => {
+        if (!active) {
+          return;
+        }
+
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'ROOM을 불러오지 못했습니다.',
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  const upload = async (
+    file?: File,
+  ) => {
     if (
       !file
       || file.type !== 'application/pdf'
@@ -95,11 +140,12 @@ export function RoomDetail({
     }
   };
 
-  const items = curricula.flatMap((curriculum) =>
-    [...curriculum.curriculum_items].sort(
-      (left, right) =>
-        left.position - right.position,
-    ),
+  const items = curricula.flatMap(
+    (curriculum) =>
+      [...curriculum.curriculum_items].sort(
+        (left, right) =>
+          left.position - right.position,
+      ),
   );
 
   return (
@@ -127,7 +173,10 @@ export function RoomDetail({
       </div>
 
       {error && (
-        <p className="form-error" role="alert">
+        <p
+          className="form-error"
+          role="alert"
+        >
           {error}
         </p>
       )}
@@ -137,7 +186,10 @@ export function RoomDetail({
           <article className="card panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">TODAY</p>
+                <p className="eyebrow">
+                  TODAY
+                </p>
+
                 <h2>기본 학습 틀</h2>
               </div>
 
@@ -157,7 +209,11 @@ export function RoomDetail({
                       item.position,
                     ).padStart(2, '0')}
                   </span>
-                  <strong>{item.title}</strong>
+
+                  <strong>
+                    {item.title}
+                  </strong>
+
                   <small>
                     {item.status === 'done'
                       ? '완료'
@@ -169,14 +225,15 @@ export function RoomDetail({
 
             {!items.length && (
               <p className="empty-copy">
-                기본 학습 틀을 불러오는 중입니다.
+                기본 학습 틀을 불러오는
+                중입니다.
               </p>
             )}
 
             <p className="fine-print">
-              프리셋 변경과 “이렇게 바꿔줘” 자연어
-              조정은 다음 구현 단계에서 이 진입점에
-              연결합니다.
+              프리셋 변경과 “이렇게 바꿔줘”
+              자연어 조정은 다음 구현 단계에서
+              이 진입점에 연결합니다.
             </p>
           </article>
 
@@ -186,14 +243,16 @@ export function RoomDetail({
                 <p className="eyebrow">
                   MATERIALS
                 </p>
+
                 <h2>자료 추가</h2>
               </div>
             </div>
 
             <p className="panel-copy">
-              자료는 선택 사항입니다. 추가된 자료는
-              분석 파이프라인이 연결되면 핵심 주제와
-              학습 계획에 반영합니다.
+              자료는 선택 사항입니다. 추가된
+              자료는 분석 파이프라인이 연결되면
+              핵심 주제와 학습 계획에
+              반영합니다.
             </p>
 
             <div className="material-actions">
@@ -234,7 +293,9 @@ export function RoomDetail({
                 className="material-placeholder"
                 disabled
               >
-                <strong>공공 아카이브</strong>
+                <strong>
+                  공공 아카이브
+                </strong>
                 <span>
                   허용 자료 연결 준비 중
                 </span>
@@ -244,7 +305,10 @@ export function RoomDetail({
             <ul className="material-list">
               {materials.map((item) => (
                 <li key={item.id}>
-                  <span>{item.original_name}</span>
+                  <span>
+                    {item.original_name}
+                  </span>
+
                   <small>
                     {Math.ceil(
                       item.size_bytes / 1024,
@@ -269,20 +333,24 @@ export function RoomDetail({
               <div>
                 <dt>방식</dt>
                 <dd>
-                  {room?.study_style || '기본형'}
+                  {room?.study_style
+                    || '기본형'}
                 </dd>
               </div>
 
               <div>
                 <dt>D-Day</dt>
                 <dd>
-                  {room?.d_day || '설정 안 함'}
+                  {room?.d_day
+                    || '설정 안 함'}
                 </dd>
               </div>
 
               <div>
                 <dt>자료</dt>
-                <dd>{materials.length}개</dd>
+                <dd>
+                  {materials.length}개
+                </dd>
               </div>
             </dl>
           </article>
