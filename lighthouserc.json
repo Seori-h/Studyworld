@@ -1,0 +1,23 @@
+{
+  "ci": {
+    "collect": {
+      "url": ["http://127.0.0.1:8787/"],
+      "startServerCommand": "node scripts/static-server.mjs",
+      "startServerReadyPattern": "Static preview ready",
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "chromeFlags": "--headless --no-sandbox --disable-dev-shm-usage"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", {"minScore": 1}],
+        "categories:accessibility": ["error", {"minScore": 1}],
+        "categories:best-practices": ["error", {"minScore": 1}],
+        "categories:seo": ["error", {"minScore": 1}]
+      }
+    },
+    "upload": { "target": "filesystem", "outputDir": ".lighthouseci" }
+  }
+}

@@ -1,41 +1,29 @@
 {
-  "name": "studyworld",
-  "version": "0.1.0",
+  "name": "studyworld-cloudflare",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.4.2",
   "engines": {
-    "node": "22.x",
-    "pnpm": "12.4.2"
+    "node": ">=22.13.0",
+    "pnpm": ">=12.4.2 <13"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint . --max-warnings=0",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "secrets:check": "node scripts/check-secrets.mjs",
-    "supply-chain:check": "node scripts/check-dependencies.mjs",
-    "check": "pnpm run secrets:check && pnpm run supply-chain:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
-    "preview": "pnpm run build && pnpm exec wrangler dev",
-    "deploy": "pnpm run check && pnpm exec wrangler deploy"
-  },
-  "dependencies": {
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "lint": "eslint src test scripts public/assets/app.js eslint.config.mjs",
+    "test": "node --test test/*.test.js",
+    "syntax": "node scripts/check-syntax.mjs",
+    "check": "pnpm run syntax && pnpm run lint && pnpm run test",
+    "db:migrate:local": "wrangler d1 migrations apply studyworld-prod --local",
+    "db:migrate:remote": "wrangler d1 migrations apply studyworld-prod --remote",
+    "lighthouse": "lhci autorun",
+    "quality": "pnpm run check && pnpm run lighthouse",
+    "predeploy": "pnpm run check && node scripts/predeploy-check.mjs"
   },
   "devDependencies": {
-    "@eslint/js": "10.0.1",
-    "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.1.1",
-    "eslint": "10.10.0",
-    "eslint-plugin-react-hooks": "7.1.1",
-    "typescript": "6.0.3",
-    "typescript-eslint": "8.70.0",
-    "vite": "8.2.2",
-    "vitest": "5.0.0",
-    "wrangler": "4.123.0"
+    "@lhci/cli": "0.15.1",
+    "eslint": "10.11.0",
+    "wrangler": "4.135.0"
   }
 }
