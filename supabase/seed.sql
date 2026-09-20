@@ -1,2 +1,0 @@
--- Production-safe baseline data lives in migrations so deployments are deterministic.
--- Keep this file for local-only fixtures when needed later.
