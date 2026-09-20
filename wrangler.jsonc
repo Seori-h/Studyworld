@@ -13,7 +13,7 @@
     {
       "binding": "DB",
       "database_name": "studyworld-prod",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "1073ac46-3368-4e0f-aa41-99ab65dccc12",
       "migrations_dir": "./migrations"
     }
   ],
