@@ -2,6 +2,7 @@ const workerGlobals = {
   console: 'readonly',
   crypto: 'readonly',
   TextEncoder: 'readonly',
+  TextDecoder: 'readonly',
   Request: 'readonly',
   Response: 'readonly',
   Headers: 'readonly',

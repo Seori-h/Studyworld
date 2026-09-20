@@ -14,7 +14,7 @@ const MODE_PROTOCOL = Object.freeze({
 
 function cleanText(value, max = 4000) {
   if (value === null || value === undefined) return '';
-  const normalized = String(value).replace(/\u0000/g, '').trim().slice(0, max);
+  const normalized = String(value).split('\0').join('').trim().slice(0, max);
   return redactSensitiveText(normalized).text;
 }
 

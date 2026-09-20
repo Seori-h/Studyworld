@@ -1,4 +1,4 @@
-const escapeHtml=(v='')=>String(v).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c]));
+const escapeHtml=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 
 const rooms={
  paper:{recipe:'REC006',title:'Attention 논문 깊게 읽기',category:'AI · 개발',icon:'📖',desc:'원문을 먼저 보고, 선택한 부분만 설명받는 리딩 행성',activity:'read / research',agent:'설명형 튜터',assessment:'none',policy:'user_led',layout:'split',progress:46,last:'6쪽에서 이어보기',modules:['자료 뷰어','근거 하이라이터','검색/RAG','노트']},
@@ -358,7 +358,7 @@ function bindRuntime(key){
    $('#langInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#langTextSend')?.click()}});
    let mediaStream=null,recorder=null,recognition=null,finalTranscript='';
    const stopListening=(submit=true)=>{const btn=$('#micBtn'),status=$('#micStatus');btn?.classList.remove('listening');btn?.setAttribute('aria-pressed','false');if(status)status.textContent='마이크로 대답하기';try{if(recognition)recognition.stop()}catch(_e){}try{if(recorder&&recorder.state!=='inactive')recorder.stop()}catch(_e){}mediaStream?.getTracks().forEach(t=>t.stop());mediaStream=null;recorder=null;recognition=null;if(submit&&finalTranscript.trim())npcRespond(finalTranscript.trim())};
-   $('#micBtn').onclick=async()=>{const btn=$('#micBtn'),status=$('#micStatus');if(btn.classList.contains('listening')){stopListening(true);return}finalTranscript='';try{mediaStream=await navigator.mediaDevices.getUserMedia({audio:true});btn.classList.add('listening');btn.setAttribute('aria-pressed','true');status.textContent='음성 수신 중 · 누르면 완료';$('#liveTranscript').textContent='듣고 있어요… 일본어로 편하게 말해보세요.';const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){recognition=new SR();recognition.lang='ja-JP';recognition.interimResults=true;recognition.continuous=true;recognition.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0].transcript;if(e.results[i].isFinal)finalTranscript+=part;else interim+=part}$('#liveTranscript').textContent=`듣는 중: ${(finalTranscript+interim).trim()||'…'}`};recognition.onerror=()=>{$('#liveTranscript').textContent='음성을 정확히 듣지 못했어요. 다시 말하거나 텍스트로 입력해 주세요.'};recognition.start()}else if(window.MediaRecorder){recorder=new MediaRecorder(mediaStream);recorder.start();$('#liveTranscript').textContent='음성 수신 중이에요. 브라우저 STT 미지원 환경이라 녹음 상태만 표시됩니다.'}}catch(e){showToast('마이크 권한을 허용하면 라이브 대화를 시작할 수 있어요.');stopListening(false)}};
+   $('#micBtn').onclick=async()=>{const btn=$('#micBtn'),status=$('#micStatus');if(btn.classList.contains('listening')){stopListening(true);return}finalTranscript='';try{mediaStream=await navigator.mediaDevices.getUserMedia({audio:true});btn.classList.add('listening');btn.setAttribute('aria-pressed','true');status.textContent='음성 수신 중 · 누르면 완료';$('#liveTranscript').textContent='듣고 있어요… 일본어로 편하게 말해보세요.';const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){recognition=new SR();recognition.lang='ja-JP';recognition.interimResults=true;recognition.continuous=true;recognition.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0].transcript;if(e.results[i].isFinal)finalTranscript+=part;else interim+=part}$('#liveTranscript').textContent=`듣는 중: ${(finalTranscript+interim).trim()||'…'}`};recognition.onerror=()=>{$('#liveTranscript').textContent='음성을 정확히 듣지 못했어요. 다시 말하거나 텍스트로 입력해 주세요.'};recognition.start()}else if(window.MediaRecorder){recorder=new window.MediaRecorder(mediaStream);recorder.start();$('#liveTranscript').textContent='음성 수신 중이에요. 브라우저 STT 미지원 환경이라 녹음 상태만 표시됩니다.'}}catch(e){showToast('마이크 권한을 허용하면 라이브 대화를 시작할 수 있어요.');stopListening(false)}};
  }
  if(key==='teach'){$('#teachSubmit').onclick=()=>{$('#studentQ').textContent='그럼 미토콘드리아 안에서 포도당이 그대로 ATP가 되는 건가요? 중간 과정이 궁금해요.';showToast('설명의 빈틈 1개를 찾았습니다.')}}
  if(key==='memory'){$('#flash').onclick=()=>{$('#flash').innerHTML='<div><div class="word">어디에나 존재하는</div><p>ubiquitous · 3번째 복습</p></div>'}}
@@ -772,6 +772,7 @@ function scheduleFairyAppearance(){
   fairyTimer=setTimeout(revealFairy,320);
 }
 const _switchView=switchView;
+// eslint-disable-next-line no-func-assign
 switchView=function(v){
   if(v!=='home'&&typeof exitPlanetFocus==='function'&&planetFocusActive)exitPlanetFocus();
   _switchView(v);
@@ -912,6 +913,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   // Existing authenticated users still jump directly to their planet collection.
   const baseUpdateDemoLaunchUI=window.updateDemoLaunchUI||updateDemoLaunchUI;
   if(typeof baseUpdateDemoLaunchUI==='function'){
+    // eslint-disable-next-line no-func-assign
     window.updateDemoLaunchUI=updateDemoLaunchUI=function(){
       baseUpdateDemoLaunchUI();
       const profile=readDemoProfile();
@@ -1133,7 +1135,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
     if(!file)return;const box=document.querySelector('#dynamicContextSuggestion');if(box){box.hidden=false;box.innerHTML='<span>자료를 안전하게 읽는 중… STUDYWORLD DB에는 원문을 저장하지 않으며, AI 분석에 필요한 범위는 설정된 AI 제공자에 일시 전송됩니다.</span>'}
     try{
       const ext=file.name.split('.').pop().toLowerCase();if(!SAFE_CONTEXT_EXTENSIONS.has(ext))throw new Error('지원하는 학습자료 형식이 아니에요.');let nextContext;
-      if(ext==='pdf'){nextContext=await loadPdfContext(file)}else{if(file.size>2.5*1024*1024)throw new Error('텍스트/코드 자료는 2.5MB 이하만 임시로 읽을 수 있어요.');const text=await file.text();if(/\u0000/.test(text.slice(0,4096)))throw new Error('텍스트 파일로 읽을 수 없는 바이너리 자료예요.');nextContext={name:file.name,type:file.type||ext,text:text.slice(0,24000),source:'upload',ephemeral:true,updatedAt:new Date().toISOString()}}
+      if(ext==='pdf'){nextContext=await loadPdfContext(file)}else{if(file.size>2.5*1024*1024)throw new Error('텍스트/코드 자료는 2.5MB 이하만 임시로 읽을 수 있어요.');const text=await file.text();if(text.slice(0,4096).includes('\0'))throw new Error('텍스트 파일로 읽을 수 없는 바이너리 자료예요.');nextContext={name:file.name,type:file.type||ext,text:text.slice(0,24000),source:'upload',ephemeral:true,updatedAt:new Date().toISOString()}}
       dynamicContext=nextContext;transientCode=['js','jsx','ts','tsx','py','json','csv'].includes(ext)?dynamicContext.text:'';setSpaceState({context:{name:dynamicContext.name,type:dynamicContext.type,source:'upload',ephemeral:true,updatedAt:dynamicContext.updatedAt},workspace:{aiFlashcards:[],aiSummary:null,aiParagraphExplain:null,aiCodeReview:null,aiNodeSuggestion:null}});
       const s=contextSuggestionFor(file);if(box){box.innerHTML=`<span>${escapeDyn(s.label)}</span><button type="button">AI 추천 모드 적용</button>`;box.querySelector('button').onclick=()=>{box.hidden=true;applyIntent(s.prompt,{recommendationAccepted:true})}}
       const suggested=await requestIntentSchema(s.prompt,{preview:true});const label=schemaLabel(suggested);if(box){box.querySelector('span').textContent=`${file.name} · AI 추천: ${label}`;box.dataset.recommendedPrompt=s.prompt}showToast('자료를 임시 컨텍스트로 연결했어요. 원문은 STUDYWORLD DB에 저장하지 않지만 AI 기능 사용 시 설정된 AI 제공자에 필요한 범위가 전달됩니다.');
@@ -1151,6 +1153,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   }
   mountEngineControls();
 
+  // eslint-disable-next-line no-func-assign
   openRoom=function(key,spaceId=null){
     if(!rooms[key])key='teach';captureWorkspace();roomModificationArmed=false;lastRoomModificationUsage=null;const commandInput=document.querySelector('#dynamicCommandInput');if(commandInput){commandInput.placeholder=DEFAULT_DYNAMIC_PLACEHOLDER;commandInput.value=''}if(spaceId)activeStudySpaceId=spaceId;dynamicSpaceId=key;state.currentRoom=key;transientCode='';dynamicContext={name:'',type:'',text:'',source:'',ephemeral:false,updatedAt:''};if(typeof saveDemoSession==='function')saveDemoSession({currentRoom:key,lastView:'runtime',activeStudySpaceId:activeStudySpaceId||null});
     const saved=getSpaceState();const savedContext=saved.context||{};dynamicContext={...dynamicContext,...savedContext,text:''};dynamicSchema=normalizeSchema(saved.schema||schemaForRoom(key),schemaForRoom(key));engineSource=saved.schema?'SAVED DYNAMIC SCHEMA':'ROOM SEED → DYNAMIC SCHEMA';

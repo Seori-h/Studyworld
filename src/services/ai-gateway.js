@@ -4,7 +4,7 @@ const DEFAULT_TIMEOUT_MS = 18_000;
 const PDF_TIMEOUT_MS = 35_000;
 const MAX_ATTEMPTS = 3;
 
-function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+function sleep(ms) { return new Promise((resolve) => { setTimeout(resolve, ms); }); }
 
 function providerConfig(env) {
   const explicit = String(env.AI_PROVIDER || '').trim().toLowerCase();

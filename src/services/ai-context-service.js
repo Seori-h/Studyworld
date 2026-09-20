@@ -6,7 +6,7 @@ const OPENAI_KEY_PATTERN = /\bsk-[A-Za-z0-9_-]{16,}\b/g;
 const GOOGLE_API_KEY_PATTERN = /\bAIza[0-9A-Za-z_-]{25,}\b/g;
 const GITHUB_TOKEN_PATTERN = /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g;
 const AWS_ACCESS_KEY_PATTERN = /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g;
-const BEARER_PATTERN = /\bBearer\s+[A-Za-z0-9._~+\/-]{24,}={0,2}\b/gi;
+const BEARER_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]{24,}={0,2}\b/gi;
 
 const SECRET_PATTERNS = Object.freeze([
   PLANET_KEY_PATTERN,
@@ -20,7 +20,7 @@ const SECRET_PATTERNS = Object.freeze([
 
 function normalizePlainText(value) {
   return String(value || '')
-    .replace(/\u0000/g, '')
+    .split('\0').join('')
     .replace(/\r\n?/g, '\n')
     .trim();
 }
