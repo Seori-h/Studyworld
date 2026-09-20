@@ -1,12 +1,88 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "studyworld",
-  "main": "worker/index.ts",
-  "compatibility_date": "2026-09-17",
+  "main": "./src/index.js",
+  "compatibility_date": "2026-09-20",
   "assets": {
-    "directory": "./dist",
+    "directory": "./public/",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "studyworld-prod",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "studyworld-uploads"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "KEY_ISSUE_RATE",
+      "namespace_id": "41001",
+      "simple": {
+        "limit": 3,
+        "period": 60
+      }
+    },
+    {
+      "name": "KEY_RESTORE_RATE",
+      "namespace_id": "41002",
+      "simple": {
+        "limit": 8,
+        "period": 60
+      }
+    },
+    {
+      "name": "WRITE_RATE",
+      "namespace_id": "41003",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    },
+    {
+      "name": "PUBLIC_READ_RATE",
+      "namespace_id": "41004",
+      "simple": {
+        "limit": 180,
+        "period": 60
+      }
+    },
+    {
+      "name": "UPLOAD_RATE",
+      "namespace_id": "41005",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    },
+    {
+      "name": "AI_RATE",
+      "namespace_id": "41006",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    }
+  ],
+  "secrets": {
+    "required": [
+      "PLANET_KEY_PEPPER",
+      "SESSION_PEPPER",
+      "AI_PROVIDER",
+      "AI_MODEL",
+      "AI_API_KEY"
+    ]
+  },
+  "observability": {
+    "enabled": true
   }
 }
