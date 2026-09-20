@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#F7F4EA">
+<meta name="description" content="STUDYWORLD는 학습 목적에 맞춰 AI 학습 공간을 구성하고 이어서 공부할 수 있게 돕는 학습 플랫폼입니다.">
+<meta name="color-scheme" content="light">
+<meta name="robots" content="index,follow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+<link rel="apple-touch-icon" href="/favicon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<title>STUDYWORLD — 내 방식대로 넓히는 배움의 세계</title>
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body class="font-hybrid">
+
+
+<svg aria-hidden="true" width="0" height="0" style="position:absolute">
+<symbol id="search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 21c.7-4 3.4-6 7.5-6s6.8 2 7.5 6" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+</svg>
+
+<header>
+  <div class="header">
+    <button class="logo-btn" data-view="home" aria-label="STUDYWORLD 홈">
+      <img src="/assets/logo.webp" alt="STUDYWORLD" width="640" height="208" decoding="async">
+    </button>
+    <nav class="nav" aria-label="주요 메뉴">
+      <button class="active" data-view="home">홈</button>
+      <button class="nav-my-planets" id="navMyPlanets" data-view="rooms" hidden><span class="nav-personal-icon" aria-hidden="true">🪐</span><span>내 행성</span><span class="nav-key-mark" aria-hidden="true">🔑</span></button>
+      <button data-view="commons">광장</button>
+      <button data-view="community">커뮤니티</button>
+      <button data-view="launch">학습시작</button>
+      <span class="gnb-indicator" id="gnbIndicator" aria-hidden="true"></span>
+    </nav>
+    <div class="profile-slot" id="profileSlot">
+      <button class="gnb-key-issue" id="gnbKeyIssue" type="button">🔑 열쇠 발급</button>
+      <button class="gnb-key-login" id="gnbKeyLogin" type="button">🪐 행성 입장</button>
+      <button class="profile-menu-trigger" id="profileMenuTrigger" type="button" aria-haspopup="menu" aria-expanded="false" hidden>
+        <span class="profile-planet" aria-hidden="true">🪐</span><span id="profileMenuName">모험가</span><span aria-hidden="true">⌄</span>
+      </button>
+      <div class="profile-dropdown" id="profileDropdown" role="menu" hidden>
+        <div class="profile-dropdown-head"><img id="profileDropdownPlanetImage" class="profile-dropdown-planet-image" src="/favicon-192.png" alt="" width="44" height="44"><div><strong id="profileDropdownName">모험가</strong><span id="profileDropdownKey">공개 코드 준비 중</span></div></div>
+        <button id="profileRotateKey" type="button" role="menuitem">🔄 행성 열쇠 다시 발급 <small>이전 열쇠 폐기</small></button>
+        <button id="adminManagedUsers" type="button" role="menuitem" hidden>⚙️ 초기 사용자·룸 관리 <small>관리자 전용</small></button>
+        <button id="profileLockKey" type="button" role="menuitem">🔑 열쇠 잠그기 <small>기기에서 내리기</small></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="view active" id="view-home">
+<div class="shell">
+  <div class="hero">
+    <div class="hero-copy">
+      <div class="eyebrow">STUDY ENVIRONMENT, BUILT AROUND YOU</div>
+      <h1 class="h1 hero-title"><span>내 방식대로 넓히는</span><span class="underline">배움의 세계</span></h1>
+      <p>배우고 싶은 것과 원하는 공부 방식을 말하면, 자료·AI 역할·평가·도구를 필요한 만큼만 조립해 바로 시작할 수 있어요.</p>
+      <form class="study-search-module" id="heroForm" autocomplete="off">
+        <div class="search-tabs" id="searchTabs" role="tablist" aria-label="학습 환경 예시 분류">
+          <button type="button" class="active" data-search-tab="purpose" role="tab" aria-selected="true">학습 목적별</button>
+          <button type="button" data-search-tab="method" role="tab" aria-selected="false">공부 방식별</button>
+          <button type="button" data-search-tab="situation" role="tab" aria-selected="false">대상/상황별</button>
+        </div>
+        <div class="search-chip-list" id="searchChipList" aria-live="polite"></div>
+        <div class="command search-command" id="searchCommand">
+          <svg class="icon" aria-hidden="true"><use href="#search"/></svg>
+          <div class="command-field">
+            <input id="heroInput" aria-label="원하는 학습 환경 설명" placeholder="" autocomplete="off">
+            <span class="rolling-placeholder" id="rollingPlaceholder" aria-hidden="true"></span>
+          </div>
+          <button class="example-refresh" id="exampleRefresh" type="button" aria-label="다른 예시 보기" title="다른 예시 보기">↻</button>
+        </div>
+        <button class="study-create-btn" id="studyCreateBtn" type="submit"><span>학습 공간 생성하기</span><span aria-hidden="true">→</span></button>
+      </form>
+    </div>
+
+    <div class="world" aria-label="학습 분야 카테고리 행성">
+      <div class="world-system" id="worldSystem" aria-hidden="true"><svg class="world-orbits" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <ellipse class="orbit-main" cx="450" cy="300" rx="380" ry="220"/>
+        <ellipse class="orbit-inner" cx="450" cy="300" rx="292" ry="166"/>
+        <circle class="orb-dot" cx="126" cy="184" r="6" fill="#b7d3bd"/><circle class="orb-dot" cx="575" cy="105" r="7" fill="#a4c8ad"/><circle class="orb-dot" cx="806" cy="234" r="6" fill="#efd16b"/><circle class="orb-dot" cx="753" cy="445" r="5" fill="#b7d3bd"/><circle class="orb-dot" cx="444" cy="528" r="7" fill="#87a98c"/><circle class="orb-dot" cx="177" cy="451" r="6" fill="#efd16b"/>
+      </svg></div>
+      <div class="center-world" aria-hidden="true"><img src="/assets/center-world.webp" alt="" width="560" height="440" decoding="async"></div>
+      <button class="planet-node p-lang" style="--depth:48px" type="button" data-category="언어" data-asset="language" aria-expanded="false" aria-label="언어 카테고리 보기"><span class="planet-art"><img src="/assets/planet-language.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><strong>언어</strong></button>
+      <button class="planet-node p-dev" style="--depth:64px" type="button" data-category="AI · 개발" data-asset="ai-dev" aria-expanded="false" aria-label="AI · 개발 카테고리 보기"><span class="planet-art"><img src="/assets/planet-ai-dev.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><strong>AI · 개발</strong></button>
+      <button class="planet-node p-design" style="--depth:34px" type="button" data-category="디자인" data-asset="design" aria-expanded="false" aria-label="디자인 카테고리 보기"><span class="planet-art"><img src="/assets/planet-design.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><strong>디자인</strong></button>
+      <button class="planet-node p-human" style="--depth:30px" type="button" data-category="인문 · 사회" data-asset="human-social" aria-expanded="false" aria-label="인문 · 사회 카테고리 보기"><span class="planet-art"><img src="/assets/planet-human-social.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><strong>인문 · 사회</strong></button>
+      <button class="planet-node p-science" style="--depth:56px" type="button" data-category="과학 · 수학" data-asset="science-math" aria-expanded="false" aria-label="과학 · 수학 카테고리 보기"><span class="planet-art"><img src="/assets/planet-science-math.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><strong>과학 · 수학</strong></button>
+      <button class="planet-node p-cert" style="--depth:38px" type="button" data-category="시험 · 자격" data-asset="exam-cert" aria-expanded="false" aria-label="시험 · 자격 카테고리 보기"><span class="planet-art"><img src="/assets/planet-exam-cert.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><strong>시험 · 자격</strong></button>
+      <button class="planet-node p-business" style="--depth:62px" type="button" data-category="비즈니스" data-asset="business" aria-expanded="false" aria-label="비즈니스 카테고리 보기"><span class="planet-art"><img src="/assets/planet-business.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><strong>비즈니스</strong></button>
+      <button class="planet-node p-life" style="--depth:42px" type="button" data-category="취미 · 생활" data-asset="hobby-life" aria-expanded="false" aria-label="취미 · 생활 카테고리 보기"><span class="planet-art"><img src="/assets/planet-hobby-life.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><strong>취미 · 생활</strong></button>
+    </div>
+  </div>
+  <div class="planet-dialog-backdrop" id="planetDialogBackdrop" hidden>
+    <section class="planet-dialog" id="planetDialog" role="dialog" aria-modal="true" aria-labelledby="planetDialogTitle" aria-describedby="planetDialogDesc">
+      <header class="planet-dialog-head"><div class="planet-dialog-icon"><img id="planetDialogIcon" alt="" width="320" height="320"></div><div><div class="eyebrow">CATEGORY PLANET</div><h2 id="planetDialogTitle">비즈니스에서 시작해볼까요?</h2><p id="planetDialogDesc">선택한 분야에서 서로 다른 방식의 학습 환경은 이렇게 되어있어요.</p></div><button class="planet-dialog-close" id="planetDialogClose" type="button" aria-label="팝업 닫기">×</button></header>
+      <div class="planet-count-line" id="planetCountLine"></div>
+      <div class="planet-dialog-body">
+        <div class="planet-section-head"><h3 id="publicPlanetHeading">최근 공개 행성</h3><div class="section-actions"><button class="planet-more" id="publicPlanetMore" type="button">더보기</button></div></div>
+        <div class="public-planets" id="publicPlanets"></div>
+        <div class="planet-section-head" style="margin-top:20px"><h3>비공개 행성</h3></div>
+        <div class="private-planets" id="privatePlanets"></div>
+      </div>
+    </section>
+  </div>
+
+</div>
+</section>
+
+<section class="view" id="view-commons">
+  <div class="shell commons-shell">
+    <header class="commons-head product-section-head section-top-bar">
+      <div class="product-section-copy">
+        <div class="product-kicker">PLAZA &amp; EXPLORE</div>
+        <h1>함께 만드는 배움터, 광장</h1>
+        <p>공개된 행성을 둘러보고 관심 있는 분야에서 새로운 학습 방식을 발견해보세요.</p>
+      </div>
+      <button class="pill" id="commonsCreate" type="button">새 행성 만들기</button>
+    </header>
+
+    <nav class="commons-category-list" id="commonsCategories" aria-label="광장 카테고리"></nav>
+
+    <section class="panel commons-browser" aria-labelledby="commonsTitle">
+      <div class="commons-browser-head">
+        <div>
+          <div class="eyebrow" id="commonsEyebrow">PUBLIC PLANETS</div>
+          <h2 id="commonsTitle">전체 공개 행성</h2>
+          <p id="commonsSummary"></p>
+        </div>
+        <div class="commons-sort" id="commonsSort" aria-label="광장 공개 행성 정렬">
+          <span>정렬</span>
+          <button type="button" data-commons-sort="recommend">추천순</button>
+          <button type="button" data-commons-sort="popular">인기순</button>
+          <button type="button" data-commons-sort="visits">방문순</button>
+          <button type="button" class="active" data-commons-sort="recent">최근 생성일순</button>
+        </div>
+      </div>
+      <div class="commons-grid" id="commonsPlanetGrid"></div>
+    </section>
+  </div>
+</section>
+
+
+<section class="view" id="view-community">
+  <div class="shell community-shell">
+    <header class="community-hero product-section-head">
+      <div class="product-section-copy">
+        <div class="product-kicker">COMMUNITY &amp; SHARE</div>
+        <h1>함께 나누는 배움의 세계</h1>
+        <p>공부 기록부터 질문, 프롬프트와 학습 노하우까지 자유롭게 나눠보세요.</p>
+      </div>
+    </header>
+
+    <section class="community-archive" aria-label="커뮤니티 게시판 아카이브">
+      <section class="community-section" aria-labelledby="certBoardTitle">
+        <div class="community-section-head">
+          <div class="community-section-title">
+            <span class="community-section-icon">✓</span>
+            <span class="community-section-copy"><strong id="certBoardTitle">공부 인증게시판</strong><span>오늘 수련 완료 캡처와 기록을 공유해요.</span></span>
+          </div>
+          <button class="community-view-all" type="button" data-board-open="cert">전체보기 →</button>
+        </div>
+        <div class="cert-grid">
+          <button class="cert-card" type="button" data-post-id="cert-1"><span class="cert-thumb"><span class="cert-shot"><i></i><i></i><i></i><b><em></em><em></em><em></em><em></em><em></em></b></span></span><span class="cert-body"><strong class="cert-title">오늘 3시간 집중 완료!</strong><span class="cert-meta"><span class="cert-user"><i class="cert-avatar">A</i>모험가A</span><span>5분 전</span></span></span></button>
+          <button class="cert-card" type="button" data-post-id="cert-2"><span class="cert-thumb" style="background:linear-gradient(145deg,#e8efe2,#e9e0c8)"><span class="cert-shot"><i></i><i></i><i></i><b><em></em><em></em><em></em><em></em><em></em></b></span></span><span class="cert-body"><strong class="cert-title">정수와 유리수 복습 인증</strong><span class="cert-meta"><span class="cert-user"><i class="cert-avatar">B</i>모험가B</span><span>18분 전</span></span></span></button>
+          <button class="cert-card" type="button" data-post-id="cert-3"><span class="cert-thumb" style="background:linear-gradient(145deg,#e5ece4,#f2dfcf)"><span class="cert-shot"><i></i><i></i><i></i><b><em></em><em></em><em></em><em></em><em></em></b></span></span><span class="cert-body"><strong class="cert-title">직업상담 2차 오답정리</strong><span class="cert-meta"><span class="cert-user"><i class="cert-avatar">C</i>모험가C</span><span>31분 전</span></span></span></button>
+          <button class="cert-card" type="button" data-post-id="cert-4"><span class="cert-thumb" style="background:linear-gradient(145deg,#eef1e7,#f2e9bf)"><span class="cert-shot"><i></i><i></i><i></i><b><em></em><em></em><em></em><em></em><em></em></b></span></span><span class="cert-body"><strong class="cert-title">뽀모도로 8회 달성</strong><span class="cert-meta"><span class="cert-user"><i class="cert-avatar">D</i>모험가D</span><span>1시간 전</span></span></span></button>
+        </div>
+      </section>
+
+      <section class="community-section" aria-labelledby="qaBoardTitle">
+        <div class="community-section-head">
+          <div class="community-section-title">
+            <span class="community-section-icon">?</span>
+            <span class="community-section-copy"><strong id="qaBoardTitle">Q&amp;A 게시판</strong><span>막히는 수학·자격증 문제를 서로 물어요.</span></span>
+          </div>
+          <button class="community-view-all" type="button" data-board-open="qa">전체보기 →</button>
+        </div>
+        <div class="qa-list">
+          <button class="qa-row" type="button" data-post-id="qa-1"><span class="qa-status">답변완료</span><strong class="qa-title">중1 문자와 식 3차 시련 관련 질문입니다!</strong><span class="qa-meta"><span>💬 3</span><span>10분 전</span></span></button>
+          <button class="qa-row" type="button" data-post-id="qa-2"><span class="qa-status wait">답변대기</span><strong class="qa-title">노동관계법규 2번 문제 풀이 과정 피드백 부탁해요</strong><span class="qa-meta"><span>💬 0</span><span>1시간 전</span></span></button>
+          <button class="qa-row" type="button" data-post-id="qa-3"><span class="qa-status">답변완료</span><strong class="qa-title">AI 맵 생성할 때 프롬프트 팁 있으신가요?</strong><span class="qa-meta"><span>💬 5</span><span>3시간 전</span></span></button>
+        </div>
+      </section>
+
+      <section class="community-section" aria-labelledby="shareBoardTitle">
+        <div class="community-section-head">
+          <div class="community-section-title">
+            <span class="community-section-icon">↗</span>
+            <span class="community-section-copy"><strong id="shareBoardTitle">맵 · 자료 공유</strong><span>AI 프롬프트, 학습 맵과 노하우를 나눠요.</span></span>
+          </div>
+          <button class="community-view-all" type="button" data-board-open="share">전체보기 →</button>
+        </div>
+        <div class="share-grid">
+          <button class="share-card" type="button" data-post-id="share-1"><span class="share-thumb"><span class="share-world"></span></span><span class="share-body"><strong class="share-title">단풍나무숲 수학 산책로</strong><span class="share-tags"><span class="share-tag">#중1수학</span><span class="share-tag">#단풍</span><span class="share-tag">#AI맵</span></span><span class="share-foot"><span class="share-download">📥 다운로드 142</span><span>2시간 전</span></span></span></button>
+          <button class="share-card" type="button" data-post-id="share-2"><span class="share-thumb" style="background:linear-gradient(145deg,#dfe8e6,#efe1c4)"><span class="share-world" style="filter:hue-rotate(18deg) saturate(.82)"></span></span><span class="share-body"><strong class="share-title">직업상담사 암기 모드</strong><span class="share-tags"><span class="share-tag">#자격증</span><span class="share-tag">#암기모드</span><span class="share-tag">#복습</span></span><span class="share-foot"><span class="share-download">📥 다운로드 89</span><span>5시간 전</span></span></span></button>
+        </div>
+      </section>
+    </section>
+  </div>
+</section>
+
+
+<section class="view" id="view-community-board">
+  <div class="shell community-product-shell">
+    <div class="product-page-head">
+      <div>
+        <button class="product-back" type="button" data-view="community">← 커뮤니티</button>
+        <div class="eyebrow" id="boardEyebrow">COMMUNITY BOARD</div>
+        <h1 id="boardPageTitle">공부 인증게시판</h1>
+        <p id="boardPageDesc">공부 기록을 함께 나눠보세요.</p>
+      </div>
+      <button class="product-primary-btn" id="openComposerBtn" type="button">새 글 작성</button>
+    </div>
+    <div class="board-product-toolbar">
+      <div class="board-product-tabs" id="boardProductTabs" aria-label="커뮤니티 게시판 선택">
+        <button type="button" data-board-open="cert">공부 인증</button>
+        <button type="button" data-board-open="qa">Q&amp;A</button>
+        <button type="button" data-board-open="share">맵 · 자료 공유</button>
+      </div>
+      <label class="board-sort-control">정렬
+        <select id="boardSortSelect" aria-label="게시물 정렬"><option value="recent">최신순</option><option value="popular">인기순</option></select>
+      </label>
+    </div>
+    <section id="boardArchiveContainer" class="board-archive-container" aria-live="polite"></section>
+  </div>
+</section>
+
+<section class="view" id="view-community-post">
+  <div class="shell community-product-shell">
+    <div class="post-detail-head">
+      <button class="product-back" id="postBackBtn" type="button">← 게시판으로</button>
+      <span class="post-board-chip" id="postBoardChip">Q&amp;A</span>
+    </div>
+    <article class="post-detail-card">
+      <div class="post-detail-meta" id="postDetailMeta"></div>
+      <h1 id="postDetailTitle"></h1>
+      <div class="post-detail-media" id="postDetailMedia" hidden></div>
+      <div class="post-detail-body" id="postDetailBody"></div>
+      <div class="post-detail-tags" id="postDetailTags"></div>
+    </article>
+    <section class="comment-panel">
+      <div class="comment-panel-head"><h2>댓글 · 답변</h2><span id="commentCount">0개</span></div>
+      <div class="comment-list" id="commentList"></div>
+      <form class="comment-form" id="commentForm">
+        <textarea id="commentInput" rows="3" maxlength="500" placeholder="댓글이나 답변을 입력해 주세요" aria-label="댓글 또는 답변"></textarea>
+        <button type="submit">등록</button>
+      </form>
+    </section>
+  </div>
+</section>
+
+<section class="view" id="view-launch">
+  <div class="shell launch-shell">
+    <section class="panel launch-card planet-key-launch">
+      <div class="launch-primary">
+        <span class="demo-badge key-badge">🔑 이메일·비밀번호 없이 · 행성 열쇠 방식</span>
+        <div class="eyebrow" style="margin-top:22px">LAUNCH APP</div>
+        <h1>기록은 남기고,<br>시작은 가볍게</h1>
+        <p class="launch-key-copy">복잡한 가입 없이 별명 하나로 즉시 나만의 행성이 열려요.<br>이메일도 비밀번호도 필요 없이, 발급되는 <strong>나만의 행성 열쇠</strong>로 학습 기록을 이어갈 수 있습니다.</p>
+        <button class="guest-cta" id="guestLaunch" type="button"><span>🔑</span><span id="guestLaunchLabel">행성 열쇠 발급받기</span><span aria-hidden="true">→</span></button>
+        <button class="planet-key-restore-link" id="planetKeyRestoreFromLaunch" type="button">이미 행성 열쇠가 있나요? <strong>행성 입장 →</strong></button>
+        <div class="demo-profile-status" id="demoProfileStatus" hidden></div>
+      </div>
+      <aside class="launch-secondary launch-home-preview" aria-label="행성 열쇠 발급 후 개인 홈 미리보기">
+        <div class="launch-preview-head">
+          <h2>행성이 열린 뒤 만나는 나만의 홈</h2>
+          <p>발급받은 열쇠 하나로 만든 행성과 학습 기록이 개인 홈처럼 연결돼요.</p>
+        </div>
+        <article class="planet-preview-card">
+          <span class="planet-preview-icon">🪐</span>
+          <span class="planet-preview-copy"><strong>내 행성</strong><span>내가 생성한 3D 학습 환경을 언제든 다시 열기</span><small>단풍나무숲 수학 산책로 · 직업상담사 암기 모드</small></span>
+          <b>PREVIEW</b>
+        </article>
+        <article class="planet-preview-card">
+          <span class="planet-preview-icon">📈</span>
+          <span class="planet-preview-copy"><strong>내 학습</strong><span>오늘의 공부 진행도와 이어보기</span><small>출석 3일차 · 정수와 유리수 80% 완료</small></span>
+          <b>PREVIEW</b>
+        </article>
+        <article class="planet-preview-card key-preview-card">
+          <span class="planet-preview-icon">🔑</span>
+          <span class="planet-preview-copy"><strong>나만의 행성 열쇠</strong><span>기기가 바뀌어도 연결된 학습 기록을 다시 열기</span></span>
+          <b>PREVIEW</b>
+        </article>
+      </aside>
+    </section>
+  </div>
+</section>
+
+<section class="view" id="view-rooms" data-route="/my-planets">
+<div class="shell">
+  <div class="panel-head" style="margin-bottom:20px">
+    <div><div class="eyebrow">MY PLANETS</div><h1 class="h2" style="font-size:30px;margin-top:8px">내 행성</h1><p>내 열쇠에 연결된 학습 공간이에요. 마지막 상태에서 바로 이어갈 수 있습니다.</p></div>
+    <button class="pill" id="newRoom">+ 새 행성 만들기</button>
+  </div>
+  <div class="room-policy-summary" id="roomPolicySummary" aria-live="polite">
+    <span>개인룸 1개</span><span>새 개인룸 72시간에 1회</span><span>타인 스터디 최대 5개 참여</span>
+  </div>
+  <div class="room-grid" id="myRooms" style="grid-template-columns:repeat(3,1fr)"></div>
+</div>
+</section>
+
+<section class="view" id="view-dashboard">
+<div class="shell">
+  <div class="dash-hero">
+    <section class="panel hello">
+      <div class="eyebrow">TODAY</div>
+      <h1>좋은 하루예요 🌱</h1>
+      <p>선택할 일을 줄이고, 바로 이어서 공부할 수 있게 준비했어요.</p>
+      <svg class="hello-art" viewBox="0 0 600 160"><path d="M0 144c92-22 142-61 209-67 78-7 119 38 185 9 79-35 111-28 206-15v89H0z" fill="#dce7da"/><path d="M0 146c126-22 176-49 260-46 78 4 126 24 187 2 58-21 91-20 153-12" fill="none" stroke="#89a08f" stroke-width="2"/></svg>
+    </section>
+    <section class="panel snapshot">
+      <div class="panel-head"><div><h2 class="h3">오늘 상태</h2><p>고정된 학습자 유형 대신 지금의 상황을 봅니다.</p></div></div>
+      <div class="snapshot-grid"><div class="snapshot-card"><small>가능 시간</small><strong>50분</strong></div><div class="snapshot-card"><small>추천 밀도</small><strong>Focus</strong></div><div class="snapshot-card"><small>이어갈 행성</small><strong>3개</strong></div><div class="snapshot-card"><small>AI 사용</small><strong>필요할 때만</strong></div></div>
+    </section>
+  </div>
+
+  <div class="dash-grid">
+    <div class="stack">
+      <section class="panel continue">
+        <div class="panel-head"><div><h2 class="h2">바로 이어서</h2><p>마지막 위치와 설정을 기억해 한 번의 클릭으로 복귀합니다.</p></div><span class="meta-pill">재설정 없음</span></div>
+        <div class="continue-grid" id="continueRooms"></div>
+      </section>
+      <section class="panel today">
+        <div class="panel-head"><div><h2 class="h2">오늘의 여정</h2><p>학습 방식이 달라도 해야 할 일은 한눈에.</p></div><span class="muted" id="todayDateLabel" style="font-size:11px">오늘</span></div>
+        <div class="journey"><div class="ring"><strong>2/4</strong></div><div class="steps"><div class="step done"><i>✓</i><b>논문 6쪽</b><span>25분</span></div><div class="step done"><i>✓</i><b>코드 테스트</b><span>15분</span></div><div class="step"><i></i><b>면접 5문항</b><span>20분</span></div><div class="step"><i></i><b>오답 복습</b><span>10분</span></div></div></div>
+      </section>
+    </div>
+    <div class="stack">
+      <section class="panel learning-log">
+        <div class="panel-head"><div><h2 class="h3">학습 기록</h2><p>최근 7일 실제 공부 시간</p></div><strong>12일 연속</strong></div>
+        <div class="bars"><div class="bar" style="height:25%"><em>14</em></div><div class="bar" style="height:42%"><em>15</em></div><div class="bar" style="height:61%"><em>16</em></div><div class="bar" style="height:34%"><em>17</em></div><div class="bar" style="height:72%"><em>18</em></div><div class="bar" style="height:54%"><em>19</em></div><div class="bar todaybar" style="height:82%"><em>20</em></div></div>
+      </section>
+      <section class="panel preference">
+        <div class="panel-head"><div><h2 class="h3">환경이 맞아지는 중</h2><p>행동 한 번으로 취향을 단정하지 않습니다.</p></div></div>
+        <div class="signal"><div class="signal-icon">✎</div><div><strong>직접 수정한 설정을 가장 강하게 반영</strong><p>“정답 바로 말하지 마” 같은 변경은 다음 생성의 높은 신뢰도 신호가 됩니다.</p></div></div>
+        <div class="signal"><div class="signal-icon">↺</div><div><strong>자주 다시 들어오는 행성은 상단으로</strong><p>재사용 3회 이상부터 기본 환경 후보로 승격합니다.</p></div></div>
+        <div class="signal"><div class="signal-icon">◷</div><div><strong>결정적 도구는 로컬에서 처리</strong><p>노트와 진행도 같은 기능은 로컬에서 처리해 비용과 지연을 줄입니다.</p></div></div>
+        <div class="suggest">최근 코딩 행성에서 힌트 레벨 1을 오래 유지했어요.<br><strong>다음 코딩 행성도 힌트를 적게 시작할까요?</strong><br><button>다음부터 적용</button></div>
+      </section>
+    </div>
+  </div>
+</div>
+</section>
+
+<section class="view" id="view-runtime">
+<div class="runtime-shell">
+  <div class="runtime-head">
+    <div class="runtime-title"><div class="runtime-avatar" id="rtIcon">📖</div><div><h1 id="rtTitle"></h1><p id="rtSub"></p><div class="runtime-chips" id="rtChips"></div></div></div>
+    <div class="runtime-actions"><button class="ghost" data-view="rooms">← 내 행성</button><button class="pill" id="modifyRoom">자연어로 수정</button></div>
+  </div>
+  <section class="dynamic-command-dock" id="dynamicCommandDock" hidden aria-label="AI Intent 기반 학습 공간 제어판">
+    <div class="dynamic-command-main">
+      <div class="dynamic-mode-meta">
+        <span class="dynamic-live-dot" aria-hidden="true"></span>
+        <div><small>DYNAMIC STUDY SPACE</small><strong id="dynamicModeLabel">AI Intent 준비됨</strong></div>
+      </div>
+      <form class="dynamic-command-form" id="dynamicCommandForm">
+        <input id="dynamicCommandInput" autocomplete="off" placeholder="@AI 이 내용 기반으로 퀴즈 모드로 바꿔줘" aria-label="AI에게 현재 학습 공간 변경 요청">
+        <button type="submit">적용</button>
+      </form>
+      <div class="dynamic-command-actions">
+        <label class="dynamic-upload-btn" for="dynamicContextFile">＋ 자료</label>
+        <input id="dynamicContextFile" type="file" accept=".js,.jsx,.ts,.tsx,.py,.json,.csv,.md,.txt,.pdf" hidden>
+        <button type="button" id="dynamicPreferenceToggle">학습 패턴</button>
+        <button type="button" id="dynamicSchemaToggle">JSON</button>
+      </div>
+    </div>
+    <p class="dynamic-ai-privacy-note" id="dynamicAiPrivacyNote">업로드 원문은 STUDYWORLD DB에 저장하지 않습니다. AI 분석을 요청하면 필요한 텍스트 구간 또는 PDF 파일이 설정된 AI 제공자에 일시 전송될 수 있습니다. 비밀번호·API 키·행성 열쇠 같은 비밀정보는 업로드하지 마세요.</p>
+    <div class="dynamic-context-suggestion" id="dynamicContextSuggestion" hidden></div>
+    <div class="dynamic-preference-panel" id="dynamicPreferencePanel" hidden></div>
+    <div class="dynamic-schema-panel" id="dynamicSchemaPanel" hidden>
+      <div><strong>AI Layout Protocol</strong><span id="dynamicEngineSource">LOCAL INTENT FALLBACK</span></div>
+      <pre id="dynamicSchemaJson"></pre>
+    </div>
+  </section>
+  <div class="runtime-area dynamic-runtime-area" id="runtimeArea"></div>
+</div>
+</section>
+</main>
+
+
+
+<!-- Global support fairy: independent from page-view visibility -->
+<button class="fairy-support-btn" id="fairySupportBtn" type="button" aria-label="문의 및 도움말 열기">
+      <span class="fairy-bubble" aria-hidden="true">무엇을 도와드릴까요?</span>
+      <span class="fairy-sparkles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <img src="/assets/fairy-mascot.webp" alt="문의하기 요정" class="fairy-img" width="640" height="640" loading="lazy" decoding="async">
+    </button>
+
+<div class="utility-modal-backdrop" id="supportModalBackdrop" hidden>
+  <section class="utility-modal support-modal support-chat-modal" role="dialog" aria-modal="true" aria-labelledby="supportModalTitle">
+    <button class="utility-modal-close" id="supportModalClose" type="button" aria-label="문의 창 닫기">×</button>
+    <div class="support-chat-head">
+      <img src="/assets/fairy-mascot.webp" alt="" aria-hidden="true" class="support-chat-fairy" width="640" height="640" loading="lazy" decoding="async">
+      <div><div class="eyebrow">SUPPORT CHAT</div><h2 id="supportModalTitle">요정과 편하게 대화해보세요</h2><p>문의 폼 대신 챗봇처럼 가볍게 물어볼 수 있어요. 버그 제보, FAQ, AI 맵 생성 문의도 바로 도와드릴게요.</p></div>
+    </div>
+    <div class="support-chat-log" id="supportChatLog" aria-live="polite">
+      <div class="chat-msg fairy"><strong>요정</strong><p>안녕하세요? 도움이 필요하신가요?</p></div>
+      <div class="chat-msg fairy"><p>이용 방법, 행성 열쇠, 버그 제보, AI 맵 생성 오류, 학습 기록 관련 문의를 편하게 남겨주세요.</p></div>
+    </div>
+    <div class="support-quick-asks" aria-label="빠른 문의">
+      <button type="button" data-support-quick="AI 맵 생성 중 오류가 발생했어요.">AI 맵 생성 오류</button>
+      <button type="button" data-support-quick="행성 열쇠와 학습 기록은 어떻게 연결되나요?">행성 열쇠 / 기록</button>
+      <button type="button" data-support-quick="자주 묻는 질문을 보고 싶어요.">FAQ 보기</button>
+    </div>
+    <form class="support-chat-form" id="supportChatForm">
+      <input id="supportChatInput" type="text" maxlength="140" placeholder="문의 내용을 입력해 주세요" autocomplete="off" aria-label="문의 내용">
+      <button type="submit">보내기</button>
+    </form>
+  </section>
+</div>
+
+
+<div class="utility-modal-backdrop" id="communityComposerBackdrop" hidden>
+  <section class="utility-modal community-composer-modal" role="dialog" aria-modal="true" aria-labelledby="communityComposerTitle">
+    <button class="utility-modal-close" id="communityComposerClose" type="button" aria-label="글쓰기 닫기">×</button>
+    <div class="eyebrow">NEW COMMUNITY POST</div>
+    <h2 id="communityComposerTitle">새 글 작성</h2>
+    <p class="modal-intro">게시물과 댓글은 서버 데이터베이스에 저장됩니다. 이미지 첨부는 허용된 이미지 형식만 안전하게 처리합니다.</p>
+    <form id="communityComposerForm" class="community-composer-form">
+      <label>게시판<select id="composerBoard" required><option value="cert">공부 인증게시판</option><option value="qa">Q&amp;A 게시판</option><option value="share">맵 · 자료 공유</option></select></label>
+      <label>제목<input id="composerTitle" maxlength="80" required placeholder="제목을 입력해 주세요"></label>
+      <label>내용<textarea id="composerBody" rows="7" maxlength="3000" required placeholder="내용을 입력해 주세요"></textarea></label>
+      <div class="composer-optional" id="composerOptionalFields"></div>
+      <button class="product-primary-btn composer-submit" type="submit">게시하기</button>
+    </form>
+  </section>
+</div>
+
+<div class="utility-modal-backdrop" id="demoAccountBackdrop" hidden>
+  <section class="utility-modal demo-account-modal planet-key-name-modal" role="dialog" aria-modal="true" aria-labelledby="demoAccountTitle">
+    <button class="utility-modal-close" id="demoAccountClose" type="button" aria-label="행성 열쇠 발급 창 닫기">×</button>
+    <div class="eyebrow">PLANET KEY</div>
+    <h2 id="demoAccountTitle">별명만 정하면 행성 열쇠가 발급돼요</h2>
+    <p>이메일·전화번호·비밀번호 없이 별명 하나만 입력해 주세요. 닉네임은 중복되지 않도록 확인한 뒤 전용 열쇠를 발급합니다.</p>
+    <div class="pending-study-notice" id="pendingStudyNotice" hidden>작성하신 학습 환경 설정은 그대로 보관되어 있어요. 열쇠 발급 후 바로 이어서 시작됩니다.</div>
+    <form id="demoAccountForm">
+      <label for="demoNickname">모험가 별명</label>
+      <input id="demoNickname" name="nickname" minlength="2" maxlength="16" autocomplete="nickname" placeholder="입력해 주세요." required aria-describedby="nicknameGuidance nicknameStatus">
+      <p class="nickname-guidance" id="nicknameGuidance">닉네임은 2~16자로 입력해 주세요.</p>
+      <div class="nickname-status" id="nicknameStatus" aria-live="polite"></div>
+      <button class="demo-account-submit" id="demoAccountSubmit" type="submit" disabled>🔑 나만의 행성 열쇠 발급하기 <span aria-hidden="true">→</span></button>
+    </form>
+  </section>
+</div>
+
+<div class="utility-modal-backdrop" id="keyModal" hidden>
+  <section class="utility-modal planet-key-restore-modal key-entry-modal" role="dialog" aria-modal="true" aria-labelledby="keyModalTitle">
+    <button class="utility-modal-close" id="keyModalClose" type="button" aria-label="행성 열쇠 입력 창 닫기">×</button>
+    <div class="eyebrow">PLANET KEY ACCESS</div>
+    <h2 id="keyModalTitle">🪐 행성 입장</h2>
+    <p>보관해두신 나만의 행성 열쇠 코드를 입력하면 연결된 학습 공간과 기록을 불러옵니다.</p>
+    <form id="keyModalForm">
+      <label for="keyModalInput">행성 열쇠</label>
+      <div class="secret-input-row">
+        <input id="keyModalInput" type="password" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="보관해둔 행성 열쇠를 입력해 주세요" required>
+        <button id="keyModalReveal" type="button" aria-pressed="false" aria-label="행성 열쇠 보기">보기</button>
+      </div>
+      <div class="nickname-status" id="keyModalStatus" aria-live="polite"></div>
+      <button class="demo-account-submit" type="submit">🚀 행성 입장하기</button>
+    </form>
+  </section>
+</div>
+
+<div class="utility-modal-backdrop" id="planetKeyIssuedBackdrop" hidden>
+  <section class="utility-modal planet-key-issued-modal" role="dialog" aria-modal="true" aria-labelledby="planetKeyIssuedTitle">
+    <button class="utility-modal-close" id="planetKeyIssuedClose" type="button" aria-label="행성 열쇠 발급 결과 닫기">×</button>
+    <div class="planet-key-orbit" aria-hidden="true"><img id="planetKeyIssuedImage" src="/favicon-192.png" alt=""><i></i><i></i><i></i></div>
+    <div class="eyebrow">YOUR SECRET PLANET KEY</div>
+    <h2 id="planetKeyIssuedTitle">✨ 모험가님의 나만의 행성 열쇠가 발급되었습니다!</h2>
+    <p class="planet-key-issued-copy">이메일/비밀번호 없이 이 열쇠 코드 하나만 알고 계시면, 다른 기기나 브라우저에서도 공부 기록을 다시 열 수 있어요.</p>
+    <div class="planet-key-code-box">
+      <span>나만의 행성 열쇠</span>
+      <code id="planetKeyCode">ST-8K32A-F9A1B-9XY2C-2026D</code>
+      <small>타인에게 공개하지 말고 안전한 곳에 보관해 주세요.</small>
+    </div>
+    <div class="planet-key-actions">
+      <button type="button" id="planetKeyCopy">📋 열쇠 코드 복사</button>
+      <button type="button" id="planetKeyCardSave">🖼️ 공유용 행성 카드 저장</button>
+    </div>
+    <div class="planet-key-server-note" id="planetKeyServerNote" hidden>행성 열쇠 원문은 발급 순간에만 표시되며, 서버에는 복원 검증용 안전한 다이제스트만 저장됩니다.</div>
+    <button class="planet-key-enter" id="planetKeyEnter" type="button">🚀 나만의 행성으로 이동하기</button>
+  </section>
+</div>
+
+<div class="utility-modal-backdrop" id="planetKeyLockBackdrop" hidden>
+  <section class="utility-modal planet-key-lock-modal" role="dialog" aria-modal="true" aria-labelledby="planetKeyLockTitle">
+    <button class="utility-modal-close" id="planetKeyLockClose" type="button" aria-label="열쇠 잠그기 창 닫기">×</button>
+    <div class="eyebrow">LOCK PLANET KEY</div>
+    <h2 id="planetKeyLockTitle">잠깐! 내 행성 열쇠를 따로 저장해두셨나요?</h2>
+    <p>행성 열쇠 <code id="planetKeyLockMasked">ST-•••••-•••••-•••••-•••••</code>의 원문은 서버에서 다시 보여드릴 수 없습니다. 보관 여부를 확인한 뒤 이 기기의 세션을 종료해 주세요.</p>
+    <div class="planet-key-lock-actions">
+      <button class="planet-key-lock-copy" id="planetKeyCopyAndLock" type="button">📋 열쇠 코드 복사하고 잠그기</button>
+      <button class="planet-key-lock-plain" id="planetKeyLockPlain" type="button">그냥 잠그기 (로그아웃)</button>
+    </div>
+  </section>
+</div>
+
+<div class="utility-modal-backdrop" id="adminManagedBackdrop" hidden>
+  <section class="utility-modal admin-managed-modal" role="dialog" aria-modal="true" aria-labelledby="adminManagedTitle">
+    <button class="utility-modal-close" id="adminManagedClose" type="button" aria-label="초기 사용자 관리 창 닫기">×</button>
+    <div class="eyebrow">ADMIN · INITIAL ACCOUNTS</div>
+    <h2 id="adminManagedTitle">초기 사용자와 공개 스터디룸 관리</h2>
+    <p>초기 사용자도 일반 사용자 계정과 동일하게 동작합니다. 전체 행성 열쇠는 저장하지 않으며, 재발급하면 이전 열쇠와 기존 세션이 즉시 폐기됩니다.</p>
+    <div class="admin-managed-toolbar">
+      <button type="button" id="adminManagedRefresh">새로고침</button>
+      <span id="adminManagedStatus" aria-live="polite"></span>
+    </div>
+    <div class="admin-managed-list" id="adminManagedList"></div>
+  </section>
+</div>
+
+<div class="utility-modal-backdrop" id="adminKeyResultBackdrop" hidden>
+  <section class="utility-modal admin-key-result-modal" role="dialog" aria-modal="true" aria-labelledby="adminKeyResultTitle">
+    <button class="utility-modal-close" id="adminKeyResultClose" type="button" aria-label="새 행성 열쇠 창 닫기">×</button>
+    <div class="eyebrow">ONE-TIME SECRET</div>
+    <h2 id="adminKeyResultTitle">새 행성 열쇠가 발급되었습니다</h2>
+    <p id="adminKeyResultOwner"></p>
+    <code class="admin-key-result-code" id="adminKeyResultCode"></code>
+    <p class="admin-key-result-warning">이 값은 이 창에서만 확인할 수 있습니다. 닫기 전에 안전한 오프라인 보관소에 저장하세요.</p>
+    <button class="product-primary-btn" id="adminKeyResultCopy" type="button">열쇠 복사</button>
+  </section>
+</div>
+
+<div class="utility-modal-backdrop" id="roomDeleteBackdrop" hidden>
+  <section class="utility-modal room-delete-modal" role="dialog" aria-modal="true" aria-labelledby="roomDeleteTitle">
+    <button class="utility-modal-close" id="roomDeleteClose" type="button" aria-label="방 정리 창 닫기">×</button>
+    <div class="eyebrow">ROOM SAFETY</div>
+    <h2 id="roomDeleteTitle">이 방을 정리할까요?</h2>
+    <p id="roomDeleteCopy">삭제 후 바로 새 방을 만들 수는 없습니다. 삭제하면 15분 동안 복구 또는 1회 정정을 선택할 수 있어요.</p>
+    <div class="room-delete-actions" id="roomDeleteActions">
+      <button type="button" class="product-primary-btn" id="roomDeleteConfirm">삭제 상태로 옮기기</button>
+      <button type="button" class="ghost" id="roomDeleteCancel">취소</button>
+    </div>
+    <div class="room-recovery-actions" id="roomRecoveryActions" hidden>
+      <button type="button" id="roomRestoreAccidental">실수로 삭제했어요 · 복구</button>
+      <button type="button" id="roomReplaceWrong">만들고 싶은 방이 아니에요 · 1회 정정</button>
+      <button type="button" id="roomDeleteFinalize">그대로 삭제</button>
+    </div>
+    <p class="room-delete-footnote" id="roomDeleteFootnote">정정권은 생성 초기이며 다른 참여자나 과도한 AI 사용이 없는 경우에만 적용됩니다.</p>
+  </section>
+</div>
+
+<footer class="site-footer"><div class="footer-inner footer-centered"><div><span>© 2026 HOPE. All rights reserved.</span></div></div></footer>
+
+<div class="backdrop" id="backdrop"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <div class="drawer-head"><div><h2 id="drawerTitle">학습환경 조립</h2><p>설정 화면을 뒤지는 대신 원하는 방식을 말하세요.</p></div><button class="round" id="close" type="button" aria-label="학습환경 조립 창 닫기">×</button></div>
+  <div class="drawer-body">
+    <div class="prompt"><textarea id="builderPrompt" aria-label="원하는 학습환경 설명" placeholder="예: 수학 문제를 풀 때 정답은 말하지 말고 내가 시도한 뒤에만 단계별 힌트를 줘."></textarea></div>
+    <div>
+      <div class="panel-head" style="margin-bottom:8px"><div><h3 class="h3">바로 만들 수 있어요</h3><p>꼭 필요한 불확실성만 질문합니다.</p></div><span class="meta-pill" id="recipeId">REC004</span></div>
+      <div class="compile"><i>✓</i><span>학습 행동 파악</span></div><div class="compile"><i>✓</i><span>Agent / Assessment 분리</span></div><div class="compile"><i>✓</i><span>필요한 UI 모듈만 선택</span></div>
+    </div>
+    <div class="config">
+      <div><small>Recipe</small><strong id="cfgRecipe">코딩 도장</strong></div>
+      <div><small>Activity</small><strong id="cfgActivity">code</strong></div>
+      <div><small>AI Agent</small><strong id="cfgAgent">소크라테스 튜터</strong></div>
+      <div><small>Assessment</small><strong id="cfgAssessment">code_test</strong></div>
+      <div><small>Answer policy</small><strong id="cfgPolicy">require_attempt</strong></div>
+      <div><small>Workspace</small><strong id="cfgLayout">custom</strong></div>
+    </div>
+    <div class="cost"><strong>비용 최적화:</strong> 노트·코드 테스트 같은 결정적 기능은 로컬에서 처리합니다. AI는 힌트, 평가, 설명처럼 필요한 순간에만 호출합니다.</div>
+  </div>
+  <div class="drawer-foot"><button class="ghost" id="preview">미리보기</button><button class="pill" id="create">이 환경으로 시작</button></div>
+</aside>
+<div class="toast" id="toast"></div>
+
+
+
+
+
+
+
+
+
+
+<script src="/assets/app.js" defer></script>
+</body></html>
