@@ -2911,3 +2911,156 @@ body[data-current-view="launch"] .planet-preview-card>b{
 
 /* Pretendard is the single product typeface; legacy font preview controls are disabled. */
 .font-preview-switcher{display:none!important}
+
+/* Commercial-readiness: explicit room visit state and conversation mode */
+.runtime-visit-time{display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border:1px solid var(--line,#dfe7df);border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;background:rgba(255,255,255,.7)}
+.post-detail-actions{display:flex;justify-content:flex-end;margin-top:18px}
+#postLikeBtn[aria-pressed="true"]{font-weight:800}
+.comment-item.is-accepted{border-color:#8aa88d;background:rgba(224,239,225,.55)}
+.comment-item .accepted-badge{display:inline-flex;margin-left:8px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;background:#e1efe3}
+.comment-item .accept-answer-btn{margin-top:8px}
+.dyn-conversation-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:16px;min-width:0}
+.dyn-conversation-main,.dyn-conversation-rail{border:1px solid var(--line,#dfe7df);border-radius:18px;background:var(--paper,#fff);min-width:0}
+.dyn-conversation-main{display:flex;flex-direction:column;min-height:480px;overflow:hidden}
+.dyn-conversation-head{padding:16px 18px;border-bottom:1px solid var(--line,#dfe7df)}
+.dyn-conversation-head small{display:block;font-size:10px;letter-spacing:.12em;font-weight:800;opacity:.55}
+.dyn-conversation-head strong{display:block;margin-top:4px;font-size:18px}
+.dyn-conversation-log{display:flex;flex:1;flex-direction:column;gap:10px;padding:18px;overflow:auto}
+.dyn-chat-bubble{max-width:82%;padding:11px 13px;border-radius:14px;line-height:1.55;font-size:13px;white-space:pre-wrap}
+.dyn-chat-bubble.user{align-self:flex-end;background:var(--accent-soft,#edf4ef)}
+.dyn-chat-bubble.ai{align-self:flex-start;background:#f6f7f6}
+.dyn-chat-translation{display:block;margin-top:5px;font-size:11px;opacity:.62}
+.dyn-conversation-form{display:flex;gap:8px;padding:14px;border-top:1px solid var(--line,#dfe7df)}
+.dyn-conversation-form input{flex:1;min-width:0;padding:12px 13px;border:1px solid var(--line,#dfe7df);border-radius:12px;font-size:16px}
+.dyn-conversation-form button{min-width:76px}
+.dyn-conversation-rail{padding:18px}
+.dyn-conversation-rail h3{margin:0 0 8px}
+.dyn-feedback-card{margin-top:16px;padding:14px;border-radius:14px;background:#f7f8f7}
+.dyn-feedback-card div+div{margin-top:9px}
+.dyn-feedback-card small{display:block;font-size:10px;font-weight:800;letter-spacing:.08em;opacity:.55}
+.dyn-feedback-card p{margin:3px 0 0;font-size:12px;line-height:1.55}
+@media (max-width:760px){.dyn-conversation-layout{grid-template-columns:1fr}.dyn-conversation-main{min-height:420px}.runtime-actions{gap:7px}.runtime-visit-time{order:3;width:100%;justify-content:center}}
+
+/* v41 — explicit planet session exit + live stay time */
+.profile-session-time{margin:8px 10px 10px;padding:9px 11px;border:1px solid var(--line,#d9e2da);border-radius:12px;background:rgba(244,248,243,.72);font-size:.82rem;font-weight:700;color:var(--ink-soft,#53645c);font-variant-numeric:tabular-nums}
+
+/* v44 — clearer demo messaging, help center, and friendlier study-room controls */
+.demo-service-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start;margin:0 0 16px;padding:16px 18px;border:1px solid rgba(31,77,58,.14);border-radius:18px;background:linear-gradient(135deg,rgba(248,250,244,.96),rgba(255,250,233,.9));color:#385449}
+.demo-service-badge{display:inline-flex;align-items:center;justify-content:center;min-width:62px;height:30px;padding:0 10px;border-radius:999px;background:#0d4939;color:#fff;font-size:11px;font-weight:900;letter-spacing:.08em}
+.demo-service-copy{min-width:0}.demo-service-copy strong{display:block;color:#173f32;font-size:14px;margin-bottom:5px}.demo-service-copy p{margin:0;color:#52675d;font-size:12.5px;line-height:1.62}.demo-service-copy small{display:block;margin-top:7px;color:#758178;font-size:11px;line-height:1.55}
+.nav-my-planets{gap:0!important}.nav-my-planets.active{background:#f4f8f1!important}
+.support-help-modal{max-width:760px!important}.support-help-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:8px 0 14px}.support-help-grid button{min-width:0;min-height:96px;padding:14px;border:1px solid #dfe5dc;border-radius:16px;background:#f8faf6;color:var(--ink);text-align:left;cursor:pointer;transition:border-color .18s ease,background .18s ease,transform .18s ease}.support-help-grid button:hover,.support-help-grid button:focus-visible{border-color:#a9c2ae;background:#fff;transform:translateY(-1px);outline:none}.support-help-grid strong{display:block;color:var(--green);font-size:13px;margin-bottom:6px}.support-help-grid span{display:block;color:var(--muted);font-size:11px;line-height:1.5}.support-help-answer{min-height:110px;padding:16px 17px;border:1px solid #dfe8db;border-radius:17px;background:#f7faf3}.support-help-answer strong{display:block;color:var(--green);font-size:13px;margin-bottom:6px}.support-help-answer p{margin:0;color:#4f6258;font-size:13px;line-height:1.65}.support-demo-note{margin-top:12px;padding:13px 15px;border-radius:15px;background:#fff9e8;border:1px solid #eadfb8}.support-demo-note strong{display:block;color:#6f5b1d;font-size:12px;margin-bottom:4px}.support-demo-note p{margin:0;color:#776b48;font-size:11.5px;line-height:1.55}
+.dynamic-mode-meta small,.dynamic-persona-copy small{text-transform:none!important;letter-spacing:.04em!important}.dynamic-schema-panel>div>strong{text-transform:none!important}.dynamic-command-form input{font-size:14px!important}
+@media(max-width:760px){.demo-service-card{grid-template-columns:1fr;gap:9px;padding:14px}.demo-service-badge{justify-self:start}.support-help-grid{grid-template-columns:1fr}.support-help-grid button{min-height:72px}.runtime-actions #modifyRoom{white-space:nowrap}}
+
+/* v23 — production support tickets + staff operations */
+.support-ticket-modal{width:min(1060px,calc(100vw - 36px));max-height:calc(100vh - 36px);overflow:auto}
+.support-ticket-statusbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 14px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.66)}
+.support-ticket-statusbar>div:first-child{display:flex;align-items:center;gap:8px;min-width:0}.support-ticket-statusbar span{font-size:12px;color:var(--muted)}.support-ticket-statusbar strong{font-size:13px;color:var(--ink);overflow-wrap:anywhere}
+.support-status-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}.support-status-pill{display:inline-flex!important;align-items:center;min-height:30px;padding:6px 10px;border-radius:999px;border:1px solid #cdded6;background:#f5faf7;color:#245948!important;font-weight:800;font-size:11px!important}
+.support-status-pill[data-status="staff_pending"]{background:#fff7dc;border-color:#ead595;color:#725616!important}.support-status-pill[data-status="awaiting_user"]{background:#eaf7ef;border-color:#b8dcca;color:#1d674c!important}.support-status-pill[data-status="closed"]{background:#f1f1ed;border-color:#d9d9d2;color:#6c6c64!important}
+.support-workspace{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;align-items:start}.support-conversation-pane,.support-ticket-list-pane{min-width:0}.support-chat-log{min-height:260px;max-height:430px;overflow:auto;padding:8px 4px 10px;scrollbar-width:thin}.chat-msg{max-width:88%;margin:10px 0;padding:12px 14px;border-radius:18px;border:1px solid #dbe7df;background:#f8fbf8}.chat-msg.user{margin-left:auto;background:#0b4f3f;color:#fff;border-color:#0b4f3f}.chat-msg.staff{background:#fff7dc;border-color:#ead595}.chat-msg strong{display:flex;align-items:center;gap:8px;font-size:12px}.chat-msg strong small{margin-left:auto;font-weight:500;opacity:.65}.chat-msg p{margin:6px 0 0;line-height:1.65;font-size:14px}.chat-msg.user p{color:#fff}.support-msg-attachment{margin-top:10px}.support-msg-attachment span{display:block;font-size:11px;margin-bottom:6px;opacity:.75}.support-msg-attachment img{display:block;max-width:min(100%,420px);max-height:280px;object-fit:contain;border-radius:12px;border:1px solid rgba(0,0,0,.08);background:#fff}
+.support-ticket-form{display:grid;gap:10px;margin-top:12px}.support-message-field{display:block}.support-message-field textarea{width:100%;resize:vertical;min-height:92px;padding:14px 15px;border:1px solid #bfd7c8;border-radius:16px;background:#fff;font:inherit;color:var(--ink);outline:none}.support-message-field textarea:focus{border-color:#5d9c7b;box-shadow:0 0 0 3px rgba(93,156,123,.12)}.support-form-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.support-attachment-control{display:inline-flex;align-items:center;min-height:38px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;font-size:12px;font-weight:700;background:#fff}.support-attachment-control input{position:absolute;inline-size:1px;block-size:1px;opacity:0;pointer-events:none}.support-attachment-name{font-size:11px;color:var(--muted);overflow-wrap:anywhere}.support-form-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.support-guest-note{margin:10px 0 0;padding:10px 12px;border-radius:12px;background:#fff8df;border:1px solid #ead99b;font-size:11px;line-height:1.55;color:#6d5d24}
+.support-ticket-list-pane{border-left:1px solid var(--line);padding-left:14px}.support-ticket-list-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.support-ticket-list{display:grid;gap:8px}.support-ticket-list>p{font-size:12px;color:var(--muted);padding:12px 4px}.support-ticket-row{width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;text-align:left;padding:11px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;color:var(--ink)}.support-ticket-row.active{border-color:#73a98a;background:#f4faf6}.support-ticket-row span{min-width:0}.support-ticket-row strong{display:block;font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.support-ticket-row small{display:block;margin-top:4px;font-size:10px;color:var(--muted)}.support-ticket-row em{flex:0 0 auto;font-style:normal;font-size:9.5px;padding:4px 7px;border-radius:999px;background:#f1f4f1;color:#4d655b}.support-ticket-row em[data-status="staff_pending"]{background:#fff1bd;color:#725616}.support-ticket-row em[data-status="awaiting_user"]{background:#dff5e8;color:#1b6649}
+
+.admin-support-modal{width:min(1180px,calc(100vw - 36px));max-height:calc(100vh - 36px);overflow:auto}.admin-support-toolbar{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:14px 0}.admin-support-toolbar label{display:grid;gap:4px;font-size:11px}.admin-support-toolbar select,.admin-support-toolbar button{min-height:38px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px 10px}.admin-support-workspace{display:grid;grid-template-columns:340px minmax(0,1fr);gap:14px;min-height:480px}.admin-support-list{display:grid;align-content:start;gap:7px;padding-right:10px;border-right:1px solid var(--line);max-height:620px;overflow:auto}.admin-support-row{display:flex;justify-content:space-between;gap:8px;width:100%;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fff;text-align:left;color:var(--ink);cursor:pointer}.admin-support-row.active{border-color:#6b9f83;background:#f3faf5}.admin-support-row span{min-width:0}.admin-support-row strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.admin-support-row small{display:block;margin-top:4px;font-size:10px;color:var(--muted)}.admin-support-row em{font-size:9.5px;font-style:normal;flex:0 0 auto}.admin-support-detail{display:flex;flex-direction:column;min-width:0}.admin-support-ticket-meta{display:grid;gap:4px;padding:10px 12px;border-radius:12px;background:#f7faf7;border:1px solid var(--line)}.admin-support-ticket-meta span{font-size:11px;color:var(--muted)}.admin-support-messages{flex:1;max-height:420px;overflow:auto;padding:8px 2px}.admin-support-internal{margin:8px 0;padding:10px 12px;border-radius:12px;background:#f3f0ff;border:1px dashed #c8bce5}.admin-support-internal strong{font-size:11px}.admin-support-internal p{font-size:12px;line-height:1.55;margin:5px 0 0}.admin-support-reply-form{display:grid;gap:8px;margin-top:10px}.admin-support-reply-form textarea{width:100%;resize:vertical;min-height:90px;padding:12px;border:1px solid var(--line);border-radius:12px;font:inherit}.admin-support-reply-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}.admin-support-reply-actions label{font-size:11px;margin-right:auto}.admin-support-reply-actions select{min-height:38px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:7px 9px}
+
+@media(max-width:820px){.support-ticket-modal,.admin-support-modal{width:100%;max-height:calc(100vh - 20px)}.support-workspace{grid-template-columns:1fr}.support-ticket-list-pane{border-left:0;border-top:1px solid var(--line);padding-left:0;padding-top:12px}.support-ticket-list{grid-template-columns:1fr 1fr}.admin-support-workspace{grid-template-columns:1fr}.admin-support-list{border-right:0;border-bottom:1px solid var(--line);padding-right:0;padding-bottom:10px;max-height:240px}.admin-support-messages{max-height:360px}}
+@media(max-width:520px){.support-ticket-list{grid-template-columns:1fr}.support-ticket-statusbar{align-items:flex-start}.support-status-actions{width:100%;margin-left:0}.support-status-actions button{flex:1}.support-form-actions>*{flex:1}.chat-msg{max-width:94%}.admin-support-reply-actions{align-items:stretch}.admin-support-reply-actions>*{width:100%}.admin-support-reply-actions label{width:auto}}
+.fairy-support-btn.has-support-reply::before{content:'1';position:absolute;right:2px;top:2px;z-index:5;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#b94734;color:#fff;font:800 11px/20px system-ui,sans-serif;text-align:center;border:2px solid #fff}
+
+
+/* v43 — route-first discovery, recoverable runtime navigation, and student demo benefit */
+.student-demo-benefit,.student-entry-benefit{border:1px solid rgba(31,77,58,.16);border-radius:18px;background:linear-gradient(135deg,rgba(241,248,238,.98),rgba(255,249,225,.96));color:#385449}
+.student-demo-benefit{display:grid;grid-template-columns:minmax(190px,.78fr) minmax(0,1fr);gap:10px 20px;align-items:center;margin:0 0 16px;padding:16px 18px}
+.student-demo-benefit[hidden],.student-entry-benefit[hidden],.student-existing-key[hidden]{display:none!important}
+.student-demo-benefit>div{display:grid;gap:3px}.student-demo-benefit>div span{font-size:10px;font-weight:900;letter-spacing:.12em;color:#2f7b63}.student-demo-benefit>div strong{font-size:15px}.student-demo-benefit p{margin:0;font-size:13px;line-height:1.55}.student-demo-benefit small{grid-column:1/-1;color:#6b786f;line-height:1.5}
+.student-entry-benefit{margin:14px 0;padding:14px 15px}.student-entry-benefit strong{display:block;margin-bottom:5px;color:#0d4939}.student-entry-benefit p{margin:0 0 5px;font-size:13px;line-height:1.55}.student-entry-benefit small{display:block;color:#6b786f;line-height:1.45}.student-entry-benefit.compact{margin:12px 0}.student-entry-benefit.compact p{margin:4px 0 0}
+.student-existing-key{width:100%;margin-top:9px;padding:11px 13px;border:1px solid rgba(31,77,58,.18);border-radius:12px;background:#fffdf8;color:#0d4939;font:inherit;font-weight:800;cursor:pointer}.student-existing-key:hover,.student-existing-key:focus-visible{background:#f3f7ef;border-color:#6d9b82}
+.runtime-actions{align-items:center;flex-wrap:wrap;justify-content:flex-end}.runtime-actions #runtimeBack{white-space:nowrap}.runtime-visit-time{white-space:nowrap}
+@media(max-width:760px){.student-demo-benefit{grid-template-columns:1fr;padding:14px}.student-demo-benefit small{grid-column:auto}.runtime-head{display:grid;grid-template-columns:1fr;gap:12px}.runtime-actions{display:flex!important;width:100%;justify-content:flex-start}.runtime-actions #modifyRoom{margin-left:auto}.runtime-visit-time{order:3;width:100%;justify-content:flex-start}}
+
+
+/* v45 — production responsive layout primitives and recoverable category dialog */
+:root{
+  --sw-page-max:1440px;
+  --sw-reading-max:1180px;
+  --sw-dialog-max:1180px;
+  --sw-gutter:clamp(14px,3vw,48px);
+  --sw-section-gap:clamp(14px,2.2vw,28px);
+}
+html.dialog-open,body.dialog-open{overflow:hidden!important;overscroll-behavior:none}
+.shell,.runtime-shell,.commons-shell,.community-shell,.launch-shell{
+  width:min(100%,var(--sw-page-max));
+  max-width:var(--sw-page-max);
+  margin-inline:auto;
+  padding-left:var(--sw-gutter)!important;
+  padding-right:var(--sw-gutter)!important;
+  box-sizing:border-box;
+}
+#view-rooms .shell{width:min(100%,1280px)!important;max-width:1280px!important;padding-left:var(--sw-gutter)!important;padding-right:var(--sw-gutter)!important}
+.runtime-shell{max-width:var(--sw-page-max)!important}
+.runtime-head,.runtime-title,.runtime-title>div,.dynamic-command-main,.dynamic-command-form,.dynamic-space-topline,.dynamic-persona-card,.dynamic-persona-copy,.dynamic-layout-frame,.workgrid,.box,.commons-browser,.commons-browser-head,.support-workspace>*{min-width:0}
+.room-grid,.continue-grid,.commons-grid,.public-planets{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))!important;
+}
+.card-title,.card-description,.runtime-title h1,.runtime-title p,.dynamic-persona-copy span{overflow-wrap:anywhere}
+
+.planet-dialog-backdrop{
+  position:fixed;inset:0;z-index:120;display:grid;place-items:center;
+  padding:clamp(10px,2.5vw,28px);background:rgba(18,39,31,.26);backdrop-filter:blur(8px);
+  overflow:hidden;
+}
+.planet-dialog-backdrop[hidden]{display:none!important}
+.planet-dialog{
+  width:min(calc(100vw - (2 * clamp(10px,2.5vw,28px))),var(--sw-dialog-max));
+  max-width:var(--sw-dialog-max);max-height:calc(100dvh - (2 * clamp(10px,2.5vw,28px)));
+  display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(13,73,57,.16);border-radius:clamp(20px,2.2vw,30px);
+  background:rgba(255,253,248,.99);box-shadow:0 34px 100px rgba(18,56,43,.24)
+}
+.planet-dialog-head{flex:0 0 auto;display:grid;grid-template-columns:clamp(58px,7vw,82px) minmax(0,1fr) 44px;gap:clamp(10px,1.5vw,18px);align-items:center;padding:clamp(14px,2vw,22px) clamp(15px,2.5vw,28px);border-bottom:1px solid var(--line)}
+.planet-dialog-icon{width:clamp(58px,7vw,82px);aspect-ratio:1;border-radius:50%;overflow:hidden;background:#fbf9f0;display:grid;place-items:center;padding:5px}
+.planet-dialog-icon img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}
+.planet-dialog-head h2{margin:3px 0 5px;font-size:clamp(20px,2.3vw,27px);line-height:1.15;letter-spacing:-.035em;overflow-wrap:anywhere}
+.planet-dialog-head p{margin:0;font-size:clamp(11px,1.2vw,13px);line-height:1.55;color:var(--muted)}
+.planet-dialog-close{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:#fffdf9;cursor:pointer;font-size:22px}
+.planet-count-line{flex:0 0 auto;margin:clamp(12px,1.7vw,18px) clamp(15px,2.5vw,28px) 0;padding:12px 14px;border:1px solid #dce6d9;border-radius:16px;background:#f0f5ec;display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;font-size:13px}
+.planet-count-number{font-size:clamp(16px,1.8vw,20px);color:var(--green)}
+.planet-dialog-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:clamp(14px,2vw,20px) clamp(15px,2.5vw,28px) clamp(18px,2.5vw,28px);scrollbar-gutter:stable}
+.planet-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.planet-section-head h3{margin:0;font-size:14px}.private-heading{margin-top:20px}
+.planet-more{min-height:38px;padding:0 13px;border:1px solid var(--line);border-radius:999px;background:#fffdf9;color:var(--green);font-weight:800;cursor:pointer}
+.private-planets{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:10px}.private-planet{display:grid;gap:3px;padding:13px 14px;border:1px dashed #cdd6ce;border-radius:15px;background:#f8f7f1}.private-planet strong{font-size:11px}.private-planet small{font-size:10px;color:var(--muted);line-height:1.45}
+
+.dynamic-command-main{grid-template-columns:minmax(150px,.26fr) minmax(260px,1fr) auto!important}
+.dynamic-command-actions{flex:0 0 auto}.dynamic-upload-btn{white-space:nowrap}
+.runtime-actions{display:flex!important;flex-wrap:wrap;gap:8px;max-width:100%}.runtime-actions>*{max-width:100%}
+.header{padding-left:var(--sw-gutter)!important;padding-right:var(--sw-gutter)!important}
+.actions{display:flex;align-items:center;gap:clamp(6px,1vw,12px);min-width:0}.actions button{min-width:0;padding-inline:clamp(10px,1.3vw,18px);white-space:nowrap}
+
+@media (max-width:1024px){
+  :root{--sw-gutter:clamp(18px,3vw,32px)}
+  .dynamic-command-main{grid-template-columns:1fr minmax(0,1.8fr)!important}.dynamic-command-actions{grid-column:1/-1;justify-content:flex-end}
+  .runtime-head{display:grid!important;grid-template-columns:1fr;gap:12px}.runtime-actions{justify-content:flex-start!important}
+}
+@media (max-width:768px){
+  :root{--sw-gutter:18px}
+  .planet-dialog-backdrop{padding:10px;align-items:stretch}
+  .planet-dialog{width:100%;max-height:calc(100dvh - 20px);margin:auto;border-radius:22px}
+  .planet-dialog-head{grid-template-columns:58px minmax(0,1fr) 44px;padding:14px 15px}.planet-dialog-icon{width:58px}.planet-dialog-copy .eyebrow{display:none}
+  .public-planets,.room-grid,.continue-grid,.commons-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))!important}
+  .dynamic-command-main{grid-template-columns:1fr!important;padding:12px!important}.dynamic-command-actions{grid-column:auto;justify-content:flex-start}.dynamic-command-form{width:100%}.dynamic-mode-meta{min-width:0!important}
+  .runtime-actions #modifyRoom{margin-left:0!important}.runtime-visit-time{width:auto!important;order:0!important}
+}
+@media (max-width:520px){
+  :root{--sw-gutter:14px}
+  .planet-dialog-backdrop{padding:0;align-items:stretch}.planet-dialog{width:100%;max-width:none;max-height:100dvh;height:100dvh;border-radius:0;border-left:0;border-right:0}.planet-dialog-head{position:sticky;top:0;z-index:3;background:rgba(255,253,248,.98);grid-template-columns:46px minmax(0,1fr) 44px;padding:11px 12px}.planet-dialog-icon{width:46px}.planet-dialog-head h2{font-size:19px}.planet-dialog-head p{font-size:10.5px}.planet-count-line{margin:10px 12px 0}.planet-dialog-body{padding:12px 12px 20px}.public-planets{grid-template-columns:1fr!important}
+  .header{padding-left:12px!important;padding-right:12px!important}.actions{gap:5px}.actions button{padding-inline:9px;font-size:10px}
+  .dynamic-command-form{display:grid;grid-template-columns:minmax(0,1fr) auto}.dynamic-command-form input{font-size:16px!important}.dynamic-command-actions{width:100%}.dynamic-upload-btn{width:100%;justify-content:center}
+  .runtime-actions{display:grid!important;grid-template-columns:1fr 1fr;width:100%}.runtime-actions .runtime-visit-time{grid-column:1/-1}.runtime-actions button{width:100%;white-space:normal!important}
+}
+@media (max-width:375px){
+  :root{--sw-gutter:12px}.planet-dialog-head{grid-template-columns:42px minmax(0,1fr) 42px}.planet-dialog-icon{width:42px}.planet-dialog-close{width:42px;height:42px}.planet-dialog-head p{display:none}.actions button{padding-inline:8px}.runtime-title{align-items:flex-start}.runtime-avatar{width:50px;height:50px}
+}
+@media (max-width:320px){
+  :root{--sw-gutter:10px}.planet-dialog-head{grid-template-columns:38px minmax(0,1fr) 40px;gap:8px;padding:9px 10px}.planet-dialog-icon{width:38px}.planet-dialog-close{width:40px;height:40px}.planet-dialog-head h2{font-size:17px}.planet-count-line{margin-inline:10px}.planet-dialog-body{padding-inline:10px}.runtime-actions{grid-template-columns:1fr}.runtime-actions .runtime-visit-time{grid-column:auto}.actions{flex-wrap:wrap;justify-content:flex-end}
+}

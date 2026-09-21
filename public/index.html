@@ -31,7 +31,7 @@
     </button>
     <nav class="nav" aria-label="주요 메뉴">
       <button class="active" data-view="home">홈</button>
-      <button class="nav-my-planets" id="navMyPlanets" data-view="rooms" hidden><span class="nav-personal-icon" aria-hidden="true">🪐</span><span>내 행성</span><span class="nav-key-mark" aria-hidden="true">🔑</span></button>
+      <button class="nav-my-planets" id="navMyPlanets" data-view="rooms" hidden>내 행성</button>
       <button data-view="commons">광장</button>
       <button data-view="community">커뮤니티</button>
       <button data-view="launch">학습시작</button>
@@ -39,15 +39,17 @@
     </nav>
     <div class="profile-slot" id="profileSlot">
       <button class="gnb-key-issue" id="gnbKeyIssue" type="button">🔑 열쇠 발급</button>
-      <button class="gnb-key-login" id="gnbKeyLogin" type="button">🪐 행성 입장</button>
+      <button class="gnb-key-login" id="gnbKeyLogin" type="button">🎓 학생 입장</button>
       <button class="profile-menu-trigger" id="profileMenuTrigger" type="button" aria-haspopup="menu" aria-expanded="false" hidden>
         <span class="profile-planet" aria-hidden="true">🪐</span><span id="profileMenuName">모험가</span><span aria-hidden="true">⌄</span>
       </button>
       <div class="profile-dropdown" id="profileDropdown" role="menu" hidden>
         <div class="profile-dropdown-head"><img id="profileDropdownPlanetImage" class="profile-dropdown-planet-image" src="/favicon-192.png" alt="" width="44" height="44"><div><strong id="profileDropdownName">모험가</strong><span id="profileDropdownKey">공개 코드 준비 중</span></div></div>
+        <div class="profile-session-time" id="profileSessionTime" aria-live="polite">현재 행성 체류 00:00</div>
         <button id="profileRotateKey" type="button" role="menuitem">🔄 행성 열쇠 다시 발급 <small>이전 열쇠 폐기</small></button>
         <button id="adminManagedUsers" type="button" role="menuitem" hidden>⚙️ 초기 사용자·룸 관리 <small>관리자 전용</small></button>
-        <button id="profileLockKey" type="button" role="menuitem">🔑 열쇠 잠그기 <small>기기에서 내리기</small></button>
+        <button id="adminSupportTickets" type="button" role="menuitem" hidden>고객 문의 관리 <small>관리자 전용</small></button>
+        <button id="profileLockKey" type="button" role="menuitem">🪐 행성 퇴장 <small>현재 기기 세션 종료</small></button>
       </div>
     </div>
   </div>
@@ -97,21 +99,27 @@
       <button class="planet-node p-life" style="--depth:42px" type="button" data-category="취미 · 생활" data-asset="hobby-life" aria-expanded="false" aria-label="취미 · 생활 카테고리 보기"><span class="planet-art"><img src="/assets/planet-hobby-life.webp" alt="" width="320" height="320" loading="lazy" decoding="async"></span><strong>취미 · 생활</strong></button>
     </div>
   </div>
+
+</div>
+</section>
+
+
   <div class="planet-dialog-backdrop" id="planetDialogBackdrop" hidden>
     <section class="planet-dialog" id="planetDialog" role="dialog" aria-modal="true" aria-labelledby="planetDialogTitle" aria-describedby="planetDialogDesc">
-      <header class="planet-dialog-head"><div class="planet-dialog-icon"><img id="planetDialogIcon" alt="" width="320" height="320"></div><div><div class="eyebrow">CATEGORY PLANET</div><h2 id="planetDialogTitle">비즈니스에서 시작해볼까요?</h2><p id="planetDialogDesc">선택한 분야에서 서로 다른 방식의 학습 환경은 이렇게 되어있어요.</p></div><button class="planet-dialog-close" id="planetDialogClose" type="button" aria-label="팝업 닫기">×</button></header>
+      <header class="planet-dialog-head">
+        <div class="planet-dialog-icon"><img id="planetDialogIcon" alt="" width="320" height="320"></div>
+        <div class="planet-dialog-copy"><div class="eyebrow">분야 둘러보기</div><h2 id="planetDialogTitle">공개 스터디룸</h2><p id="planetDialogDesc">선택한 분야에서 운영 중인 공개 스터디룸을 둘러볼 수 있어요.</p></div>
+        <button class="planet-dialog-close" id="planetDialogClose" type="button" aria-label="팝업 닫기">×</button>
+      </header>
       <div class="planet-count-line" id="planetCountLine"></div>
       <div class="planet-dialog-body">
-        <div class="planet-section-head"><h3 id="publicPlanetHeading">최근 공개 행성</h3><div class="section-actions"><button class="planet-more" id="publicPlanetMore" type="button">더보기</button></div></div>
+        <div class="planet-section-head"><h3 id="publicPlanetHeading">최근 공개 행성</h3><div class="section-actions"><button class="planet-more" id="publicPlanetMore" type="button">광장에서 더보기</button></div></div>
         <div class="public-planets" id="publicPlanets"></div>
-        <div class="planet-section-head" style="margin-top:20px"><h3>비공개 행성</h3></div>
+        <div class="planet-section-head private-heading"><h3>비공개 행성</h3></div>
         <div class="private-planets" id="privatePlanets"></div>
       </div>
     </section>
   </div>
-
-</div>
-</section>
 
 <section class="view" id="view-commons">
   <div class="shell commons-shell">
@@ -243,7 +251,7 @@
       <h1 id="postDetailTitle"></h1>
       <div class="post-detail-media" id="postDetailMedia" hidden></div>
       <div class="post-detail-body" id="postDetailBody"></div>
-      <div class="post-detail-tags" id="postDetailTags"></div>
+      <div class="post-detail-tags" id="postDetailTags"></div><div class="post-detail-actions"><button class="ghost" id="postLikeBtn" type="button" aria-pressed="false">♡ 좋아요 <span id="postLikeCount">0</span></button></div>
     </article>
     <section class="comment-panel">
       <div class="comment-panel-head"><h2>댓글 · 답변</h2><span id="commentCount">0개</span></div>
@@ -299,6 +307,19 @@
     <div><div class="eyebrow">MY PLANETS</div><h1 class="h2" style="font-size:30px;margin-top:8px">내 행성</h1><p>내 열쇠에 연결된 학습 공간이에요. 마지막 상태에서 바로 이어갈 수 있습니다.</p></div>
     <button class="pill" id="newRoom">+ 새 행성 만들기</button>
   </div>
+  <aside class="demo-service-card" aria-label="데모 서비스 안내">
+    <div class="demo-service-badge">DEMO</div>
+    <div class="demo-service-copy">
+      <strong>현재 STUDYWORLD는 데모 운영 중입니다.</strong>
+      <p>핵심 학습 기능과 AI 학습방 구성을 검증하고 있어요. AI 생성과 학습방 변경에는 데모용 일일 보호 한도가 적용됩니다.</p>
+      <small>정식 서비스의 무료·유료 멤버십, 학생 할인·학생 플랜, 학교·기관 제휴는 준비 중이며 요금과 세부 조건은 확정 후 안내합니다.</small>
+    </div>
+  </aside>
+  <aside class="student-demo-benefit" id="studentBenefitCard" hidden aria-label="학생 데모 혜택">
+    <div><span>STUDENT DEMO</span><strong>학생 데모 혜택이 적용 중이에요.</strong></div>
+    <p>기본 일일 한도를 모두 사용한 뒤에도 <b>AI 학습방 변경 2회</b>를 추가로 사용할 수 있어요.</p>
+    <small>학생 할인·전용 플랜·학교/기관 제휴는 준비 중입니다. 현재 데모 혜택은 별도 학생 인증 없이 제공됩니다.</small>
+  </aside>
   <div class="room-policy-summary" id="roomPolicySummary" aria-live="polite">
     <span>개인룸 1개</span><span>새 개인룸 72시간에 1회</span><span>타인 스터디 최대 5개 참여</span>
   </div>
@@ -353,32 +374,25 @@
 <div class="runtime-shell">
   <div class="runtime-head">
     <div class="runtime-title"><div class="runtime-avatar" id="rtIcon">📖</div><div><h1 id="rtTitle"></h1><p id="rtSub"></p><div class="runtime-chips" id="rtChips"></div></div></div>
-    <div class="runtime-actions"><button class="ghost" data-view="rooms">← 내 행성</button><button class="pill" id="modifyRoom">자연어로 수정</button></div>
+    <div class="runtime-actions"><span class="runtime-visit-time" id="runtimeVisitTime" aria-live="polite">체류 00:00</span><button class="ghost" id="runtimeBack" type="button">← 이전 화면</button><button class="pill" id="modifyRoom">학습방 바꾸기</button></div>
   </div>
-  <section class="dynamic-command-dock" id="dynamicCommandDock" hidden aria-label="AI Intent 기반 학습 공간 제어판">
+  <section class="dynamic-command-dock" id="dynamicCommandDock" hidden aria-label="학습방 맞춤 설정">
     <div class="dynamic-command-main">
       <div class="dynamic-mode-meta">
         <span class="dynamic-live-dot" aria-hidden="true"></span>
-        <div><small>DYNAMIC STUDY SPACE</small><strong id="dynamicModeLabel">AI Intent 준비됨</strong></div>
+        <div><small>현재 학습 방식</small><strong id="dynamicModeLabel">학습 방식 준비 중</strong></div>
       </div>
       <form class="dynamic-command-form" id="dynamicCommandForm">
-        <input id="dynamicCommandInput" autocomplete="off" placeholder="@AI 이 내용 기반으로 퀴즈 모드로 바꿔줘" aria-label="AI에게 현재 학습 공간 변경 요청">
+        <input id="dynamicCommandInput" autocomplete="off" placeholder="예: 회화 연습 중심으로 바꾸고, 피드백은 대화가 끝난 뒤 해줘" aria-label="현재 학습방을 원하는 방식으로 변경">
         <button type="submit">적용</button>
       </form>
       <div class="dynamic-command-actions">
         <label class="dynamic-upload-btn" for="dynamicContextFile">＋ 자료</label>
         <input id="dynamicContextFile" type="file" accept=".js,.jsx,.ts,.tsx,.py,.json,.csv,.md,.txt,.pdf" hidden>
-        <button type="button" id="dynamicPreferenceToggle">학습 패턴</button>
-        <button type="button" id="dynamicSchemaToggle">JSON</button>
       </div>
     </div>
     <p class="dynamic-ai-privacy-note" id="dynamicAiPrivacyNote">업로드 원문은 STUDYWORLD DB에 저장하지 않습니다. AI 분석을 요청하면 필요한 텍스트 구간 또는 PDF 파일이 설정된 AI 제공자에 일시 전송될 수 있습니다. 비밀번호·API 키·행성 열쇠 같은 비밀정보는 업로드하지 마세요.</p>
     <div class="dynamic-context-suggestion" id="dynamicContextSuggestion" hidden></div>
-    <div class="dynamic-preference-panel" id="dynamicPreferencePanel" hidden></div>
-    <div class="dynamic-schema-panel" id="dynamicSchemaPanel" hidden>
-      <div><strong>AI Layout Protocol</strong><span id="dynamicEngineSource">LOCAL INTENT FALLBACK</span></div>
-      <pre id="dynamicSchemaJson"></pre>
-    </div>
   </section>
   <div class="runtime-area dynamic-runtime-area" id="runtimeArea"></div>
 </div>
@@ -387,33 +401,53 @@
 
 
 
-<!-- Global support fairy: independent from page-view visibility -->
+<!-- Production support center: AI answers first; unresolved requests become real staff tickets. -->
 <button class="fairy-support-btn" id="fairySupportBtn" type="button" aria-label="문의 및 도움말 열기">
-      <span class="fairy-bubble" aria-hidden="true">무엇을 도와드릴까요?</span>
-      <span class="fairy-sparkles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
-      <img src="/assets/fairy-mascot.webp" alt="문의하기 요정" class="fairy-img" width="640" height="640" loading="lazy" decoding="async">
-    </button>
+  <span class="fairy-bubble" aria-hidden="true">도움이 필요하신가요?</span>
+  <span class="fairy-sparkles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+  <img src="/assets/fairy-mascot.webp" alt="" aria-hidden="true" class="fairy-img" width="640" height="640" loading="lazy" decoding="async">
+</button>
 
 <div class="utility-modal-backdrop" id="supportModalBackdrop" hidden>
-  <section class="utility-modal support-modal support-chat-modal" role="dialog" aria-modal="true" aria-labelledby="supportModalTitle">
+  <section class="utility-modal support-modal support-ticket-modal" role="dialog" aria-modal="true" aria-labelledby="supportModalTitle">
     <button class="utility-modal-close" id="supportModalClose" type="button" aria-label="문의 창 닫기">×</button>
     <div class="support-chat-head">
       <img src="/assets/fairy-mascot.webp" alt="" aria-hidden="true" class="support-chat-fairy" width="640" height="640" loading="lazy" decoding="async">
-      <div><div class="eyebrow">SUPPORT CHAT</div><h2 id="supportModalTitle">요정과 편하게 대화해보세요</h2><p>문의 폼 대신 챗봇처럼 가볍게 물어볼 수 있어요. 버그 제보, FAQ, AI 맵 생성 문의도 바로 도와드릴게요.</p></div>
+      <div><div class="eyebrow">STUDYWORLD SUPPORT</div><h2 id="supportModalTitle">요정에게 문의하기</h2><p>요정이 먼저 바로 확인해 드리고, 계정 확인이나 운영 조치가 필요한 문의는 실제 운영팀 티켓으로 전환합니다. 운영팀 답변은 보통 1~3일 이내 이 문의에서 확인할 수 있어요.</p></div>
     </div>
-    <div class="support-chat-log" id="supportChatLog" aria-live="polite">
-      <div class="chat-msg fairy"><strong>요정</strong><p>안녕하세요? 도움이 필요하신가요?</p></div>
-      <div class="chat-msg fairy"><p>이용 방법, 행성 열쇠, 버그 제보, AI 맵 생성 오류, 학습 기록 관련 문의를 편하게 남겨주세요.</p></div>
+    <div class="support-ticket-statusbar">
+      <div><span>문의</span><strong id="supportTicketCode">새 문의</strong></div>
+      <span class="support-status-pill" id="supportTicketStatus">대기 중</span>
+      <div class="support-status-actions"><button type="button" class="ghost" id="supportCloseTicket" hidden>문의 종료</button><button type="button" class="ghost" id="supportNewTicket">새 문의</button></div>
     </div>
-    <div class="support-quick-asks" aria-label="빠른 문의">
-      <button type="button" data-support-quick="AI 맵 생성 중 오류가 발생했어요.">AI 맵 생성 오류</button>
-      <button type="button" data-support-quick="행성 열쇠와 학습 기록은 어떻게 연결되나요?">행성 열쇠 / 기록</button>
-      <button type="button" data-support-quick="자주 묻는 질문을 보고 싶어요.">FAQ 보기</button>
+    <div class="support-workspace">
+      <div class="support-conversation-pane">
+        <div class="support-chat-log" id="supportChatLog" aria-live="polite">
+          <div class="chat-msg fairy"><strong>요정</strong><p>안녕하세요. 궁금한 점이나 문제가 생긴 상황을 그대로 적어주세요. 비밀번호, API 키, 행성 열쇠 원문 같은 비밀정보는 보내지 마세요.</p></div>
+        </div>
+        <div class="support-quick-asks" aria-label="빠른 문의">
+          <button type="button" data-support-quick="학습방을 원하는 방식으로 만들거나 수정하는 방법이 궁금해요.">학습방 사용</button>
+          <button type="button" data-support-quick="행성 열쇠와 학습 기록 연결 방식이 궁금해요.">행성 열쇠 · 기록</button>
+          <button type="button" data-support-quick="기능을 사용하다 오류가 반복해서 발생해요.">오류 신고</button>
+        </div>
+        <form class="support-chat-form support-ticket-form" id="supportChatForm">
+          <label class="support-message-field" for="supportChatInput"><span class="sr-only">문의 내용</span><textarea id="supportChatInput" maxlength="2000" rows="3" placeholder="문의 내용을 입력해 주세요" required></textarea></label>
+          <div class="support-form-row">
+            <label class="support-attachment-control">스크린샷 첨부<input id="supportAttachmentInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+            <span id="supportAttachmentName" class="support-attachment-name"></span>
+          </div>
+          <div class="support-form-actions">
+            <button type="button" class="ghost" id="supportEscalateBtn">운영팀에 문의하기</button>
+            <button type="submit" class="product-primary-btn" id="supportSendBtn">보내기</button>
+          </div>
+        </form>
+        <p class="support-guest-note" id="supportGuestNote" hidden>비로그인 문의도 이 브라우저의 보호된 지원 세션으로 이어집니다. 브라우저 쿠키를 삭제하면 이전 비로그인 문의를 다시 열 수 없습니다.</p>
+      </div>
+      <aside class="support-ticket-list-pane" aria-label="내 문의 내역">
+        <div class="support-ticket-list-head"><strong>내 문의</strong><button type="button" class="ghost" id="supportRefreshTickets">새로고침</button></div>
+        <div class="support-ticket-list" id="supportTicketList"><p>아직 문의 내역이 없습니다.</p></div>
+      </aside>
     </div>
-    <form class="support-chat-form" id="supportChatForm">
-      <input id="supportChatInput" type="text" maxlength="140" placeholder="문의 내용을 입력해 주세요" autocomplete="off" aria-label="문의 내용">
-      <button type="submit">보내기</button>
-    </form>
   </section>
 </div>
 
@@ -441,12 +475,18 @@
     <h2 id="demoAccountTitle">별명만 정하면 행성 열쇠가 발급돼요</h2>
     <p>이메일·전화번호·비밀번호 없이 별명 하나만 입력해 주세요. 닉네임은 중복되지 않도록 확인한 뒤 전용 열쇠를 발급합니다.</p>
     <div class="pending-study-notice" id="pendingStudyNotice" hidden>작성하신 학습 환경 설정은 그대로 보관되어 있어요. 열쇠 발급 후 바로 이어서 시작됩니다.</div>
+    <div class="student-entry-benefit" id="studentEntryBenefit" hidden>
+      <strong>학생 데모 혜택</strong>
+      <p>학생 입장으로 시작하면 기본 일일 한도를 모두 사용한 뒤에도 AI 학습방 변경을 하루 2회 더 사용할 수 있어요.</p>
+      <small>학생 할인·학생 플랜·학교/기관 제휴는 준비 중이며, 데모 기간에는 별도 학생 인증 없이 혜택을 적용합니다.</small>
+    </div>
     <form id="demoAccountForm">
       <label for="demoNickname">모험가 별명</label>
       <input id="demoNickname" name="nickname" minlength="2" maxlength="16" autocomplete="nickname" placeholder="입력해 주세요." required aria-describedby="nicknameGuidance nicknameStatus">
       <p class="nickname-guidance" id="nicknameGuidance">닉네임은 2~16자로 입력해 주세요.</p>
       <div class="nickname-status" id="nicknameStatus" aria-live="polite"></div>
       <button class="demo-account-submit" id="demoAccountSubmit" type="submit" disabled>🔑 나만의 행성 열쇠 발급하기 <span aria-hidden="true">→</span></button>
+      <button class="student-existing-key" id="studentExistingKey" type="button" hidden>이미 행성 열쇠가 있다면 기존 행성으로 입장</button>
     </form>
   </section>
 </div>
@@ -456,7 +496,10 @@
     <button class="utility-modal-close" id="keyModalClose" type="button" aria-label="행성 열쇠 입력 창 닫기">×</button>
     <div class="eyebrow">PLANET KEY ACCESS</div>
     <h2 id="keyModalTitle">🪐 행성 입장</h2>
-    <p>보관해두신 나만의 행성 열쇠 코드를 입력하면 연결된 학습 공간과 기록을 불러옵니다.</p>
+    <p id="keyModalCopy">보관해두신 나만의 행성 열쇠 코드를 입력하면 연결된 학습 공간과 기록을 불러옵니다.</p>
+    <div class="student-entry-benefit compact" id="keyModalBenefit" hidden>
+      <strong>학생 데모 혜택 적용</strong><p>이 열쇠의 계정에 학생 데모 혜택을 연결하고, AI 학습방 변경 보너스 2회/일을 제공합니다.</p>
+    </div>
     <form id="keyModalForm">
       <label for="keyModalInput">행성 열쇠</label>
       <div class="secret-input-row">
@@ -493,12 +536,12 @@
 <div class="utility-modal-backdrop" id="planetKeyLockBackdrop" hidden>
   <section class="utility-modal planet-key-lock-modal" role="dialog" aria-modal="true" aria-labelledby="planetKeyLockTitle">
     <button class="utility-modal-close" id="planetKeyLockClose" type="button" aria-label="열쇠 잠그기 창 닫기">×</button>
-    <div class="eyebrow">LOCK PLANET KEY</div>
-    <h2 id="planetKeyLockTitle">잠깐! 내 행성 열쇠를 따로 저장해두셨나요?</h2>
-    <p>행성 열쇠 <code id="planetKeyLockMasked">ST-•••••-•••••-•••••-•••••</code>의 원문은 서버에서 다시 보여드릴 수 없습니다. 보관 여부를 확인한 뒤 이 기기의 세션을 종료해 주세요.</p>
+    <div class="eyebrow">LEAVE PLANET</div>
+    <h2 id="planetKeyLockTitle">행성에서 퇴장하기 전에 열쇠를 저장해두셨나요?</h2>
+    <p>행성 열쇠 <code id="planetKeyLockMasked">ST-•••••-•••••-•••••-•••••</code>의 원문은 서버에서 다시 보여드릴 수 없습니다. 보관 여부를 확인한 뒤 퇴장하면 이 기기의 현재 세션이 종료됩니다.</p>
     <div class="planet-key-lock-actions">
-      <button class="planet-key-lock-copy" id="planetKeyCopyAndLock" type="button">📋 열쇠 코드 복사하고 잠그기</button>
-      <button class="planet-key-lock-plain" id="planetKeyLockPlain" type="button">그냥 잠그기 (로그아웃)</button>
+      <button class="planet-key-lock-copy" id="planetKeyCopyAndLock" type="button">📋 열쇠 코드 복사하고 퇴장</button>
+      <button class="planet-key-lock-plain" id="planetKeyLockPlain" type="button">행성 퇴장하기</button>
     </div>
   </section>
 </div>
@@ -514,6 +557,35 @@
       <span id="adminManagedStatus" aria-live="polite"></span>
     </div>
     <div class="admin-managed-list" id="adminManagedList"></div>
+  </section>
+</div>
+
+<div class="utility-modal-backdrop" id="adminSupportBackdrop" hidden>
+  <section class="utility-modal admin-support-modal" role="dialog" aria-modal="true" aria-labelledby="adminSupportTitle">
+    <button class="utility-modal-close" id="adminSupportClose" type="button" aria-label="고객 문의 관리 닫기">×</button>
+    <div class="eyebrow">ADMIN · CUSTOMER SUPPORT</div>
+    <h2 id="adminSupportTitle">고객 문의 관리</h2>
+    <p>AI가 해결하지 못했거나 운영 조치가 필요한 실제 문의를 확인하고 같은 대화에서 답변합니다.</p>
+    <div class="admin-support-toolbar">
+      <label>상태<select id="adminSupportFilter"><option value="all">전체</option><option value="staff_pending">운영팀 확인 중</option><option value="awaiting_user">운영팀 답변 도착</option><option value="ai_handling">요정 확인 중</option><option value="ai_resolved">요정 답변 완료</option><option value="resolved">답변 완료</option><option value="closed">종료</option></select></label>
+      <button type="button" id="adminSupportRefresh">새로고침</button>
+      <span id="adminSupportStatus" aria-live="polite"></span>
+    </div>
+    <div class="admin-support-workspace">
+      <div class="admin-support-list" id="adminSupportList"></div>
+      <div class="admin-support-detail">
+        <div id="adminSupportTicketMeta" class="admin-support-ticket-meta">문의 항목을 선택해 주세요.</div>
+        <div id="adminSupportMessages" class="admin-support-messages"></div>
+        <form id="adminSupportReplyForm" class="admin-support-reply-form">
+          <textarea id="adminSupportReply" rows="4" maxlength="2000" placeholder="운영팀 답변을 입력해 주세요" required></textarea>
+          <div class="admin-support-reply-actions">
+            <label><input type="checkbox" id="adminSupportInternal"> 내부 메모로 저장</label>
+            <select id="adminSupportNextStatus" aria-label="문의 상태"><option value="awaiting_user">답변 후 사용자 확인 대기</option><option value="staff_pending">운영팀 확인 중</option><option value="resolved">답변 완료</option><option value="closed">종료</option></select>
+            <button type="submit" class="product-primary-btn">답변 저장</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -552,20 +624,20 @@
 
 <div class="backdrop" id="backdrop"></div>
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
-  <div class="drawer-head"><div><h2 id="drawerTitle">학습환경 조립</h2><p>설정 화면을 뒤지는 대신 원하는 방식을 말하세요.</p></div><button class="round" id="close" type="button" aria-label="학습환경 조립 창 닫기">×</button></div>
+  <div class="drawer-head"><div><h2 id="drawerTitle">내 학습방 만들기</h2><p>원하는 공부 방식과 상황을 편하게 적어주세요.</p></div><button class="round" id="close" type="button" aria-label="학습방 만들기 창 닫기">×</button></div>
   <div class="drawer-body">
     <div class="prompt"><textarea id="builderPrompt" aria-label="원하는 학습환경 설명" placeholder="예: 수학 문제를 풀 때 정답은 말하지 말고 내가 시도한 뒤에만 단계별 힌트를 줘."></textarea></div>
     <div>
-      <div class="panel-head" style="margin-bottom:8px"><div><h3 class="h3">바로 만들 수 있어요</h3><p>꼭 필요한 불확실성만 질문합니다.</p></div><span class="meta-pill" id="recipeId">REC004</span></div>
-      <div class="compile"><i>✓</i><span>학습 행동 파악</span></div><div class="compile"><i>✓</i><span>Agent / Assessment 분리</span></div><div class="compile"><i>✓</i><span>필요한 UI 모듈만 선택</span></div>
+      <div class="panel-head" style="margin-bottom:8px"><div><h3 class="h3">이렇게 준비할게요</h3><p>요청을 바탕으로 필요한 학습 방식과 도구만 골라 구성합니다.</p></div></div>
+      <div class="compile"><i>✓</i><span>학습 목표와 상황 파악</span></div><div class="compile"><i>✓</i><span>AI 코치와 피드백 방식 선택</span></div><div class="compile"><i>✓</i><span>필요한 학습 도구만 구성</span></div>
     </div>
     <div class="config">
-      <div><small>Recipe</small><strong id="cfgRecipe">코딩 도장</strong></div>
-      <div><small>Activity</small><strong id="cfgActivity">code</strong></div>
-      <div><small>AI Agent</small><strong id="cfgAgent">소크라테스 튜터</strong></div>
-      <div><small>Assessment</small><strong id="cfgAssessment">code_test</strong></div>
-      <div><small>Answer policy</small><strong id="cfgPolicy">require_attempt</strong></div>
-      <div><small>Workspace</small><strong id="cfgLayout">custom</strong></div>
+      <div><small>학습 주제</small><strong id="cfgRecipe">코딩 문제 풀이</strong></div>
+      <div><small>학습 방식</small><strong id="cfgActivity">문제를 직접 풀며 학습</strong></div>
+      <div><small>AI 역할</small><strong id="cfgAgent">질문으로 돕는 코치</strong></div>
+      <div><small>확인 방식</small><strong id="cfgAssessment">빠른 테스트</strong></div>
+      <div><small>피드백 방식</small><strong id="cfgPolicy">먼저 시도한 뒤 힌트</strong></div>
+      <div><small>화면 구성</small><strong id="cfgLayout">문제와 편집기</strong></div>
     </div>
     <div class="cost"><strong>비용 최적화:</strong> 노트·코드 테스트 같은 결정적 기능은 로컬에서 처리합니다. AI는 힌트, 평가, 설명처럼 필요한 순간에만 호출합니다.</div>
   </div>

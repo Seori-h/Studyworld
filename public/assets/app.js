@@ -3,7 +3,7 @@ const escapeHtml=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 const rooms={
  paper:{recipe:'REC006',title:'Attention 논문 깊게 읽기',category:'AI · 개발',icon:'📖',desc:'원문을 먼저 보고, 선택한 부분만 설명받는 리딩 행성',activity:'read / research',agent:'설명형 튜터',assessment:'none',policy:'user_led',layout:'split',progress:46,last:'6쪽에서 이어보기',modules:['자료 뷰어','근거 하이라이터','검색/RAG','노트']},
  coding:{recipe:'REC004',title:'코딩 도장 · 배열과 해시',category:'AI · 개발',icon:'⌨️',desc:'문제 + 코드 에디터 + 정적 체크 + AI 리뷰 코치',activity:'code',agent:'소크라테스 튜터',assessment:'code_test',policy:'require_attempt',layout:'custom',progress:62,last:'테스트 2/4 통과',modules:['문제','코드 에디터','정적 체크','AI 디버깅 코치']},
- language:{recipe:'REC009',title:'도쿄 편의점 롤플레이',category:'언어',icon:'🗣️',desc:'상황극을 끊지 않고 진행한 뒤 마지막에 교정',activity:'speak',agent:'역할 캐릭터',assessment:'simulation',policy:'delayed_feedback',layout:'immersive',progress:34,last:'결제 표현부터',modules:['상황극','음성','자막','세션 리포트']},
+ language:{recipe:'REC009',title:'실전 회화 롤플레이',category:'언어',icon:'🗣️',desc:'사용자가 정한 언어·상황·목표에 맞춰 대화를 이어가고 발화 뒤에 짧게 교정',activity:'speak',agent:'실전 회화 코치',assessment:'simulation',policy:'delayed_feedback',layout:'conversation',progress:0,last:'대화 시작하기',modules:['상황극','표현 교정','번역','세션 리포트']},
  teach:{recipe:'REC001',title:'내가 설명하는 생물학',category:'과학 · 수학',icon:'🌱',desc:'AI 학생에게 설명하며 빠진 개념과 오개념을 찾기',activity:'explain',agent:'호기심 학생',assessment:'teach_back',policy:'hint_first',layout:'split',progress:51,last:'세포 호흡 개념',modules:['Teach-back 학생','설명 평가기','힌트 사다리','약점 기록']},
  exam:{recipe:'REC002',title:'한국사 엄격 시험실',category:'시험 · 자격',icon:'✓',desc:'시험 범위에서만 출제하고 결과 중심으로 복습',activity:'recall / solve',agent:'엄격한 시험관',assessment:'mixed',policy:'never_show_until_end',layout:'focus',progress:73,last:'오답 7개 남음',modules:['객관식','단답형','오답노트','적응형 문제']},
  memory:{recipe:'REC005',title:'TOEFL 단어 복습실',category:'언어',icon:'◫',desc:'틀린 카드가 다시 돌아오는 약점 우선 암기 행성',activity:'recall',agent:'집중 코치',assessment:'flashcard',policy:'after_attempt',layout:'focus',progress:68,last:'오늘 24장 남음',modules:['플래시카드','오답 재시험','약점 큐','진행도']},
@@ -53,6 +53,9 @@ const STUDYWORLD_SETTINGS={
     planetKeyRotate:'/api/v1/planet-keys/rotate',
     adminManagedProfiles:'/api/v1/admin/managed-profiles',
     adminStudySpaces:'/api/v1/admin/study-spaces',
+    supportMessages:'/api/v1/support/messages',
+    supportTickets:'/api/v1/support/tickets',
+    adminSupportTickets:'/api/v1/admin/support/tickets',
     studyDrafts:'/api/v1/study-drafts',
     studySpaces:'/api/v1/study-spaces',
     communityPosts:'/api/v1/community/posts',
@@ -84,9 +87,26 @@ async function apiFetch(path,options={}){
   }finally{clearTimeout(t)}
 }
 
+function studyTitleFromPrompt(prompt,tagLabel=''){
+ const labeled=String(tagLabel||'').replace(/^[^\p{L}\p{N}]+/u,'').trim();if(labeled)return labeled.slice(0,42);
+ const text=String(prompt||'').replace(/\s+/g,' ').trim();if(!text)return '나의 학습 행성';
+ const rules=[
+  [/비즈니스\s*영어|business\s*english/i,'비즈니스 영어 회화'],
+  [/영어.*면접|면접.*영어|english.*interview/i,'영어 면접 롤플레이'],
+  [/외국어.*말하기|회화|말하기|롤플레이/i,'실전 회화 연습'],
+  [/코딩|코드|개발|디버그/i,'코딩 학습 공간'],
+  [/논문|원문|문서|pdf/i,'자료 깊게 읽기'],
+  [/시험|자격|기출/i,'시험 대비 학습실'],
+  [/암기|단어|플래시/i,'회상·암기 학습실'],
+  [/에세이|글쓰기|논술/i,'글쓰기 워크숍']
+ ];
+ for(const [re,title] of rules)if(re.test(text))return title;
+ return text.length>42?`${text.slice(0,41)}…`:text;
+}
 function buildPendingStudyPayload(){
  const tag=activeSearchTag===null?null:SEARCH_TAGS[activeSearchTab][activeSearchTag];
- return {version:1,prompt:heroInput.value.trim()||(tag?.prompt||''),categoryMode:activeSearchTab,tagLabel:tag?.label||null,tagPrompt:tag?.prompt||null,source:'home-search',createdAt:new Date().toISOString()};
+ const prompt=heroInput.value.trim()||(tag?.prompt||'');
+ return {version:1,prompt,title:studyTitleFromPrompt(prompt,tag?.label||''),categoryMode:activeSearchTab,tagLabel:tag?.label||null,tagPrompt:tag?.prompt||null,source:'home-search',createdAt:new Date().toISOString()};
 }
 function savePendingStudy(payload){localStorage.setItem(STUDYWORLD_SETTINGS.storage.pendingStudyKey,JSON.stringify(payload));return payload}
 function readPendingStudy(){try{return JSON.parse(localStorage.getItem(STUDYWORLD_SETTINGS.storage.pendingStudyKey)||'null')}catch(e){return null}}
@@ -98,6 +118,9 @@ async function createStudySpaceFromDraft(payload){
  return apiFetch(STUDYWORLD_SETTINGS.endpoints.studySpaces,{method:'POST',body:JSON.stringify({...payload,templateKey:state.builderRoom,visibility:'private'})});
 }
 let activeStudySpaceId=null;
+const studySpaceMetaById=new Map();
+let activeStudySpaceMeta=null;
+let roomReturnContext=null;
 function roomCreationErrorMessage(error){
  if(error?.code==='ROOM_CREATION_COOLDOWN'){
    const at=error?.details?.nextAllowedAt;return at?`개인룸은 3일에 한 번 만들 수 있어요. 다음 생성: ${new Date(at).toLocaleString('ko-KR')}`:'개인룸은 3일에 한 번 만들 수 있어요.';
@@ -132,7 +155,8 @@ async function refreshMyStudySpaces(){
  try{
    const data=await apiFetch(STUDYWORLD_SETTINGS.endpoints.studySpaces);
    const owned=data.owned||[],joined=data.joined||[];
-   const cards=[...owned.map(x=>{const ownership=x.spaceKind==='group'?'내 공개 스터디':x.spaceKind==='class'?'내 클래스':'내 개인룸';return roomCard(x.templateKey||'teach',false,{spaceId:x.id,title:x.title,ownership,owned:true,spaceKind:x.spaceKind||'personal',status:x.status,recoveryExpiresAt:x.recoveryExpiresAt})}),...joined.map(x=>roomCard(x.templateKey||'teach',false,{spaceId:x.id,title:x.title,ownership:'참여 중',spaceKind:x.spaceKind||'group',status:'active'}))];
+   [...owned,...joined].forEach(x=>studySpaceMetaById.set(x.id,x));
+   const cards=[...owned.map(x=>{const ownership=x.spaceKind==='group'?'내 공개 스터디':x.spaceKind==='class'?'내 클래스':'내 개인룸';return roomCard(x.templateKey||'teach',false,{spaceId:x.id,title:x.title,prompt:x.prompt,description:x.description,category:x.category,ownership,owned:true,spaceKind:x.spaceKind||'personal',status:x.status,recoveryExpiresAt:x.recoveryExpiresAt,totalStudySeconds:x.totalStudySeconds||0})}),...joined.map(x=>roomCard(x.templateKey||'teach',false,{spaceId:x.id,title:x.title,prompt:x.prompt,description:x.description,category:x.category,ownership:'참여 중',spaceKind:x.spaceKind||'group',status:'active',totalStudySeconds:x.totalStudySeconds||0}))];
    root.innerHTML=cards.length?cards.join(''):`<article class="room-card room-empty"><div class="room-body"><div class="room-meta"><span class="tag">MY PLANET</span></div><h3>아직 만든 개인룸이 없어요</h3><p>개인룸은 3일에 1개 만들 수 있고, 다른 스터디에는 최대 5개까지 참여할 수 있어요.</p></div></article>`;
    bindRoomClicks(root);
    const summary=$('#roomPolicySummary');if(summary){const activeOwned=owned.filter(x=>x.status==='active'&&(x.spaceKind||'personal')==='personal').length;const next=data?.limits?.nextAllowedAt?new Date(data.limits.nextAllowedAt).toLocaleString('ko-KR'):'첫 생성 가능';summary.innerHTML=`<span>내 개인룸 ${activeOwned}/1</span><span>참여 중 ${joined.length}/${data?.limits?.joinedMax||5}</span><span>다음 정상 생성 ${escapeHtml(next)}</span>${data?.limits?.correctionAvailable?'<strong>1회 정정 가능</strong>':''}`;}
@@ -142,9 +166,9 @@ async function refreshMyStudySpaces(){
 $('#roomDeleteClose')?.addEventListener('click',closeRoomDeleteModal);$('#roomDeleteCancel')?.addEventListener('click',closeRoomDeleteModal);$('#roomDeleteBackdrop')?.addEventListener('click',event=>{if(event.target.id==='roomDeleteBackdrop')closeRoomDeleteModal()});$('#roomDeleteConfirm')?.addEventListener('click',()=>requestRoomDelete('accidental'));$('#roomRestoreAccidental')?.addEventListener('click',()=>requestRoomDelete('restore'));$('#roomReplaceWrong')?.addEventListener('click',()=>requestRoomDelete('wrong_room'));$('#roomDeleteFinalize')?.addEventListener('click',()=>requestRoomDelete('normal'));
 async function continuePendingStudySetup(){
  const draft=readPendingStudy();if(!draft)return false;const prompt=(draft.prompt||draft.tagPrompt||'').trim();if(!prompt)return false;
- document.body.classList.add('app-mode');inferPrompt(prompt);showToast('저장된 설정으로 학습 공간을 생성하고 있어요…');
- try{const created=await createStudySpaceFromDraft({...draft,profile:readDemoProfile()?.id||null});activeStudySpaceId=created.id;clearPendingStudy();await refreshMyStudySpaces();openRoom(created.templateKey||state.builderRoom,created.id);saveDemoSession({lastView:'runtime',currentRoom:created.templateKey||state.builderRoom,lastStudyPrompt:prompt,activeStudySpaceId:created.id});return true}
- catch(error){showToast(roomCreationErrorMessage(error));return false}
+ document.body.classList.add('app-mode');inferPrompt(prompt);switchView('rooms');const roomRoot=$('#myRooms');if(roomRoot)roomRoot.innerHTML='<article class="room-card room-empty"><div class="room-body"><h3>새 학습방을 만들고 있어요…</h3><p>요청한 목표와 공부 방식을 확인해 학습방을 준비하고 있습니다.</p></div></article>';showToast('새 학습방을 준비하고 있어요…');
+ try{const created=await createStudySpaceFromDraft({...draft,profile:readDemoProfile()?.id||null});activeStudySpaceId=created.id;activeStudySpaceMeta=created;studySpaceMetaById.set(created.id,created);clearPendingStudy();await refreshMyStudySpaces();openRoom(created.templateKey||state.builderRoom,created.id,created);saveDemoSession({lastView:'runtime',currentRoom:created.templateKey||state.builderRoom,lastStudyPrompt:prompt,activeStudySpaceId:created.id});return true}
+ catch(error){await refreshMyStudySpaces().catch(()=>{});showToast(roomCreationErrorMessage(error));return false}
 }
 async function requestStudySpaceCreation(){
  const draft=savePendingStudy(buildPendingStudyPayload());if(!draft.prompt){heroInput.focus();showToast('원하는 학습 방식이나 태그를 먼저 선택해 주세요.');return}
@@ -175,33 +199,66 @@ async function checkNicknameAvailability(nickname){
 
 async function createCommunityPost(payload){return apiFetch(STUDYWORLD_SETTINGS.endpoints.communityPosts,{method:'POST',body:JSON.stringify(payload)});}
 async function createCommunityComment(postId,payload){const path=STUDYWORLD_SETTINGS.endpoints.communityComments.replace('{id}',encodeURIComponent(postId));return apiFetch(path,{method:'POST',body:JSON.stringify(payload)});}
+async function setCommunityLike(postId,liked){return apiFetch(`${STUDYWORLD_SETTINGS.endpoints.communityPosts}/${encodeURIComponent(postId)}/like`,{method:liked?'POST':'DELETE'});}
+async function acceptCommunityAnswer(postId,commentId){return apiFetch(`${STUDYWORLD_SETTINGS.endpoints.communityPosts}/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/accept`,{method:'POST'});}
 
+function navKeyForView(v){
+ if(String(v||'').startsWith('community'))return 'community';
+ if(readDemoProfile()&&['rooms','runtime','dashboard'].includes(v))return 'rooms';
+ return v;
+}
+function syncActiveNav(v=state.view){
+ const navKey=navKeyForView(v);
+ $$('.nav button[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===navKey));
+}
 function switchView(v){
  state.view=v; $$('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+v));
- const navKey=v.startsWith('community')?'community':v;
- $$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===navKey));
+ syncActiveNav(v);
  window.scrollTo({top:0,behavior:'smooth'});
 }
 $$('[data-view]').forEach(b=>b.addEventListener('click',()=>{
   if(b.dataset.view==='commons') openCommons(commonsCategory);
+  else if(b.dataset.view==='rooms'&&readDemoProfile()) void enterDemoApp('rooms',{announce:false});
   else switchView(b.dataset.view);
 }));
 
 function roomCard(key,compact=false,meta={}){
- const safeKey=rooms[key]?key:'teach',r=rooms[safeKey],title=meta.title||r.title,pending=meta.status==='deleted_pending';const spaceAttr=meta.spaceId?` data-space-id="${escapeHtml(meta.spaceId)}"`:'';
+ const safeKey=rooms[key]?key:'teach',r=rooms[safeKey],title=meta.title||r.title,description=meta.prompt||meta.description||r.desc,category=meta.category||r.category,pending=meta.status==='deleted_pending';const spaceAttr=meta.spaceId?` data-space-id="${escapeHtml(meta.spaceId)}"`:'';
  const management=!compact&&meta.owned&&meta.spaceId&&(meta.spaceKind||'personal')==='personal'?(pending?`<div class="room-manage-actions pending"><button type="button" data-room-resolve="${escapeHtml(meta.spaceId)}">삭제 처리 선택</button></div>`:`<div class="room-manage-actions"><button type="button" data-room-delete="${escapeHtml(meta.spaceId)}">방 정리</button></div>`):'';
+ const totalSeconds=Math.max(0,Number(meta.totalStudySeconds||0));const stay=totalSeconds?`<span class="meta-pill">누적 ${totalSeconds<3600?`${Math.max(1,Math.round(totalSeconds/60))}분`:`${Math.floor(totalSeconds/3600)}시간 ${Math.round((totalSeconds%3600)/60)}분`}</span>`:'';
  return `<article class="${compact?'cont-card':'room-card'}${pending?' room-card-pending':''}" data-room="${safeKey}" data-room-status="${escapeHtml(meta.status||'active')}"${spaceAttr}>
    <div class="${compact?'cont-top':'room-visual'}"><span class="bigicon">${r.icon}</span>${compact?`<span class="resume">${r.last}</span>`:`<span class="room-type">${escapeHtml(pending?'삭제 대기':(meta.ownership||r.recipe))}</span>`}</div>
    <div class="${compact?'':'room-body'}">
-     <div class="room-meta" style="margin-top:${compact?'9':'0'}px"><span class="tag">${r.category}</span><span class="meta-pill">${r.activity}</span></div>
-     <h3>${escapeHtml(title)}</h3>${compact?`<small>${r.desc}</small>`:`<p>${pending?'15분 이내에 복구하거나, 조건을 충족하면 1회 정정을 선택할 수 있어요.':r.desc}</p><div class="room-foot"><div style="flex:1"><div class="progress"><i style="width:${pending?0:r.progress}%"></i></div></div>${pending?'':`<span class="arrow"><svg class="icon-sm"><use href="#arrow"/></svg></span>`}</div>${management}`}
+     <div class="room-meta" style="margin-top:${compact?'9':'0'}px"><span class="tag">${escapeHtml(category)}</span><span class="meta-pill">${r.activity}</span>${stay}</div>
+     <h3>${escapeHtml(title)}</h3>${compact?`<small>${escapeHtml(description)}</small>`:`<p>${pending?'15분 이내에 복구하거나, 조건을 충족하면 1회 정정을 선택할 수 있어요.':escapeHtml(description)}</p><div class="room-foot"><div style="flex:1"><div class="progress"><i style="width:${pending?0:r.progress}%"></i></div></div>${pending?'':`<span class="arrow"><svg class="icon-sm"><use href="#arrow"/></svg></span>`}</div>${management}`}
    </div></article>`;
 }
 function bindRoomClicks(root=document){
- $$('[data-room]',root).forEach(el=>el.addEventListener('click',event=>{if(event.target.closest('button')||el.dataset.roomStatus==='deleted_pending')return;openRoom(el.dataset.room,el.dataset.spaceId||null)}));
+ $$('[data-room]',root).forEach(el=>el.addEventListener('click',event=>{if(event.target.closest('button')||el.dataset.roomStatus==='deleted_pending')return;const spaceId=el.dataset.spaceId||null;openRoom(el.dataset.room,spaceId,resolveStudySpaceMeta(spaceId))}));
  $$('[data-room-delete]',root).forEach(button=>button.addEventListener('click',event=>{event.stopPropagation();openRoomDeleteModal(button.dataset.roomDelete,'confirm')}));
  $$('[data-room-resolve]',root).forEach(button=>button.addEventListener('click',event=>{event.stopPropagation();openRoomDeleteModal(button.dataset.roomResolve,'recovery')}));
 }
+let activeRoomVisit=null;
+let roomVisitTick=0;
+function formatStay(seconds){const n=Math.max(0,Math.floor(Number(seconds||0)));const h=Math.floor(n/3600),m=Math.floor((n%3600)/60),sec=n%60;return h>0?`${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`}
+function paintRoomVisitTime(){const el=$('#runtimeVisitTime');if(!el)return;if(!activeRoomVisit){el.textContent='체류 00:00';return}const seconds=Math.max(0,Math.floor((Date.now()-Date.parse(activeRoomVisit.enteredAt))/1000));el.textContent=`체류 ${formatStay(seconds)}`}
+function startRoomVisitClock(){clearInterval(roomVisitTick);paintRoomVisitTime();roomVisitTick=setInterval(paintRoomVisitTime,1000)}
+async function enterRoomVisit(spaceId){
+ if(!spaceId||!readDemoProfile())return null;
+ if(activeRoomVisit?.spaceId===spaceId)return activeRoomVisit;
+ if(activeRoomVisit)await exitRoomVisit('switch_room',{silent:true});
+ const visit=await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(spaceId)}/enter`,{method:'POST'});
+ activeRoomVisit={spaceId,visitId:visit.visitId,enteredAt:visit.enteredAt};startRoomVisitClock();return visit;
+}
+async function exitRoomVisit(reason='manual',{silent=false,keepalive=false}={}){
+ const visit=activeRoomVisit;if(!visit)return null;activeRoomVisit=null;clearInterval(roomVisitTick);roomVisitTick=0;paintRoomVisitTime();
+ try{
+  const result=await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(visit.spaceId)}/exit`,{method:'POST',keepalive,body:JSON.stringify({visitId:visit.visitId,reason})});
+  if(!silent){showToast(`학습방에서 나왔어요 · 이번 체류 ${formatStay(result.durationSeconds||0)} · 누적 ${formatStay(result.totalStudySeconds||0)}`);await refreshMyStudySpaces()}
+  return result;
+ }catch(error){if(!silent)showToast(error?.message||'퇴장 기록을 저장하지 못했어요.');return null}
+}
+window.addEventListener('pagehide',()=>{if(activeRoomVisit)void exitRoomVisit('pagehide',{silent:true,keepalive:true})});
 let planetCatalog={
   '언어':{public:[],private:[]},
   'AI · 개발':{public:[],private:[]},
@@ -212,9 +269,9 @@ let planetCatalog={
   '비즈니스':{public:[],private:[]},
   '취미 · 생활':{public:[],private:[]}
 };
-let lastPlanetTrigger=null;const planetDialogBackdrop=$('#planetDialogBackdrop'),planetDialog=$('#planetDialog');
-let activePlanetCategory=null;
 let commonsCategory='전체',commonsSort='recent';
+let activePlanetCategory=null,lastPlanetTrigger=null;
+const planetDialogBackdrop=$('#planetDialogBackdrop'),planetDialog=$('#planetDialog');
 const categoryOrder=['언어','AI · 개발','디자인','인문 · 사회','과학 · 수학','시험 · 자격','비즈니스','취미 · 생활'];
 let discoveryCatalogLoaded=false,discoveryCatalogPromise=null;
 async function ensureDiscoveryCatalog(force=false){
@@ -225,58 +282,84 @@ async function ensureDiscoveryCatalog(force=false){
    const next=Object.fromEntries(categoryOrder.map(cat=>[cat,{public:[],private:[]}]));
    for(const row of (Array.isArray(rows)?rows:[])){
      const cat=next[row.category]?row.category:'취미 · 생활';
-     next[cat].public.push({id:row.id,title:row.title,meta:row.meta||'',desc:row.description||'',room:row.templateKey||'teach',recommend:Number(row.recommend||0),popular:Number(row.popular||0),visits:Number(row.visits||0),createdAt:row.createdAt||'',owner:row.owner||null});
+     const item={id:row.id,title:row.title,meta:row.meta||'',desc:row.description||'',room:row.templateKey||'teach',recommend:Number(row.recommend||0),popular:Number(row.popular||0),visits:Number(row.visits||0),createdAt:row.createdAt||'',owner:row.owner||null,_category:cat};
+     next[cat].public.push(item);
+     studySpaceMetaById.set(item.id,{id:item.id,title:item.title,prompt:item.desc,description:item.desc,meta:item.meta,templateKey:item.room,category:cat,spaceKind:'group',visibility:'group',status:'active',owner:item.owner});
    }
    planetCatalog=next;discoveryCatalogLoaded=true;return planetCatalog;
  })().finally(()=>{discoveryCatalogPromise=null});
  return discoveryCatalogPromise;
 }
-function planetAssetPath(asset){const map={language:'planet-language.webp','ai-dev':'planet-ai-dev.webp',design:'planet-design.webp','human-social':'planet-human-social.webp','science-math':'planet-science-math.webp','exam-cert':'planet-exam-cert.webp',business:'planet-business.webp','hobby-life':'planet-hobby-life.webp'};return `/assets/${map[asset]||'planet-hobby-life.webp'}`}
+function resolveStudySpaceMeta(spaceId,fallback=null){
+ const id=String(spaceId||'');
+ if(!id)return fallback||null;
+ return studySpaceMetaById.get(id)||fallback||null;
+}
 function formatVisits(n){return new Intl.NumberFormat('ko-KR').format(n)}
 function planetThumbTheme(cat){return ({'언어':'language','AI · 개발':'ai','디자인':'design','인문 · 사회':'humanities','과학 · 수학':'science','시험 · 자격':'exam','비즈니스':'business','취미 · 생활':'life'})[cat]||'life'}
+function categoryIconSrc(cat){const node=$$('.planet-node').find(n=>n.dataset.category===cat);return node?.querySelector('.planet-art img')?.currentSrc||node?.querySelector('.planet-art img')?.src||''}
+function planetAssetPath(asset){const map={language:'planet-language.webp','ai-dev':'planet-ai-dev.webp',design:'planet-design.webp','human-social':'planet-human-social.webp','science-math':'planet-science-math.webp','exam-cert':'planet-exam-cert.webp',business:'planet-business.webp','hobby-life':'planet-hobby-life.webp'};return `/assets/${map[asset]||'planet-hobby-life.webp'}`}
+function renderPopupPublicPlanets(){const data=planetCatalog[activePlanetCategory];if(!data)return;const items=sortPlanetList(data.public,'recent').slice(0,3);$('#publicPlanets').innerHTML=items.length?items.map(p=>publicPlanetCard(p,activePlanetCategory)).join(''):'<div class="commons-empty">아직 공개된 행성이 없어요.</div>';$('#publicPlanetMore').hidden=data.public.length<=3;$('#publicPlanetHeading').textContent='최근 공개 행성'}
+function renderPrivatePlanets(){const root=$('#privatePlanets');if(root)root.innerHTML='<div class="private-planet"><strong>비공개 행성은 광장에 노출되지 않아요.</strong><small>열쇠를 가진 구성원만 입장할 수 있습니다.</small></div>'}
+function lockPageForDialog(){document.documentElement.classList.add('dialog-open');document.body.classList.add('dialog-open')}
+function unlockPageForDialog(){document.documentElement.classList.remove('dialog-open');document.body.classList.remove('dialog-open')}
+async function openPlanetDialog(cat,trigger){
+ try{await ensureDiscoveryCatalog()}catch(_e){showToast('공개 스터디 목록을 불러오지 못했어요.');return}
+ const data=planetCatalog[cat];if(!data||!planetDialogBackdrop||!planetDialog)return;activePlanetCategory=cat;lastPlanetTrigger=trigger||null;$$('.planet-node').forEach(p=>p.setAttribute('aria-expanded',String(p===trigger)));const sourceIcon=trigger?.querySelector('.planet-art img');$('#planetDialogIcon').src=sourceIcon?.currentSrc||sourceIcon?.src||planetAssetPath(trigger?.dataset?.asset);$('#planetDialogIcon').alt=`${cat} 아이콘`;$('#planetDialogTitle').textContent=`${cat}에서 시작해볼까요?`;$('#planetDialogDesc').textContent='실제 계정이 운영하는 공개 스터디룸을 둘러보고 참여할 수 있어요.';$('#planetCountLine').innerHTML=`<span class="planet-count-lead">지금</span><strong class="planet-count-number">${data.public.length}개의 공개 행성</strong><span class="planet-count-lead">이 있어요.</span>`;renderPopupPublicPlanets();renderPrivatePlanets();planetDialogBackdrop.hidden=false;lockPageForDialog();requestAnimationFrame(()=>{planetDialog.scrollTop=0;const body=planetDialog.querySelector('.planet-dialog-body');if(body)body.scrollTop=0});setTimeout(()=>$('#planetDialogClose')?.focus(),30)
+}
+function closePlanetDialog(restoreFocus=true){if(!planetDialogBackdrop||planetDialogBackdrop.hidden)return;planetDialogBackdrop.hidden=true;unlockPageForDialog();$$('.planet-node').forEach(p=>p.setAttribute('aria-expanded','false'));const target=lastPlanetTrigger;lastPlanetTrigger=null;activePlanetCategory=null;if(restoreFocus&&target)target.focus()}
 function publicPlanetCard(p,categoryLabel=''){
- const cat=categoryLabel||activePlanetCategory||p._category||'취미 · 생활',src=categoryIconSrc(cat),theme=planetThumbTheme(cat),owner=p.owner?.nickname?`<span class="planet-owner">🪐 ${escapeHtml(p.owner.nickname)}</span>`:'';
+ const cat=categoryLabel||p._category||'취미 · 생활',src=categoryIconSrc(cat),theme=planetThumbTheme(cat),owner=p.owner?.nickname?`<span class="planet-owner">🪐 ${escapeHtml(p.owner.nickname)}</span>`:'';
  return `<article class="discovery-planet planet-card-v37" data-space-id="${escapeHtml(p.id||'')}"><div class="card-thumbnail-banner thumb-${theme}">${src?`<img src="${src}" alt="" aria-hidden="true">`:''}<span class="thumb-category">${escapeHtml(cat)}</span><i class="thumb-dot d1"></i><i class="thumb-dot d2"></i><i class="thumb-dot d3"></i></div><div class="card-content">${categoryLabel?`<span class="planet-card-category">${escapeHtml(categoryLabel)}</span>`:''}<div class="planet-mini-meta"><span class="tag">공개</span><span class="meta-pill">${escapeHtml(p.meta||'')}</span></div><h4 class="card-title">${escapeHtml(p.title)}</h4><p class="card-description">${escapeHtml(p.desc)}</p>${owner}<div class="planet-card-foot card-meta"><strong>방문 ${formatVisits(p.visits)}</strong><span>${escapeHtml((p.createdAt||'').replaceAll('-','.'))}</span></div><div class="discovery-actions"><button type="button" data-planet-action="visit" data-room="${escapeHtml(p.room)}" data-space-id="${escapeHtml(p.id||'')}">방문</button><button type="button" class="join" data-planet-action="join" data-room="${escapeHtml(p.room)}" data-space-id="${escapeHtml(p.id||'')}">Join</button></div></div></article>`
 }
 function sortPlanetList(list,sortKey){const rows=[...list];if(sortKey==='recommend')return rows.sort((a,b)=>b.recommend-a.recommend||b.popular-a.popular);if(sortKey==='popular')return rows.sort((a,b)=>b.popular-a.popular||b.visits-a.visits);if(sortKey==='visits')return rows.sort((a,b)=>b.visits-a.visits);return rows.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))}
-function renderPopupPublicPlanets(){const data=planetCatalog[activePlanetCategory];if(!data)return;const items=sortPlanetList(data.public,'recent').slice(0,3);$('#publicPlanets').innerHTML=items.length?items.map(p=>publicPlanetCard(p,activePlanetCategory)).join(''):'<div class="commons-empty">아직 공개된 행성이 없어요.</div>';$('#publicPlanetMore').hidden=data.public.length<=3;$('#publicPlanetHeading').textContent='최근 공개 행성'}
-function renderPrivatePlanets(){const root=$('#privatePlanets');if(root)root.innerHTML='<div class="private-planet"><strong>비공개 행성은 광장 목록에 표시하지 않아요.</strong></div>'}
-async function openPlanetDialog(cat,trigger){
- try{await ensureDiscoveryCatalog()}catch(_e){showToast('공개 스터디 목록을 불러오지 못했어요.');return}
- const data=planetCatalog[cat];if(!data)return;activePlanetCategory=cat;lastPlanetTrigger=trigger;$$('.planet-node').forEach(p=>p.setAttribute('aria-expanded',String(p===trigger)));const sourceIcon=trigger.querySelector('.planet-art img');$('#planetDialogIcon').src=sourceIcon?.currentSrc||sourceIcon?.src||planetAssetPath(trigger.dataset.asset);$('#planetDialogIcon').alt=`${cat} 아이콘`;$('#planetDialogTitle').textContent=`${cat}에서 시작해볼까요?`;$('#planetDialogDesc').textContent='실제 계정이 운영하는 공개 스터디룸을 둘러보고 참여할 수 있어요.';$('#planetCountLine').innerHTML=`<span class="planet-count-lead">지금</span><strong class="planet-count-number">${data.public.length}개의 공개 행성</strong><span class="planet-count-lead">이 있어요.</span>`;renderPopupPublicPlanets();renderPrivatePlanets();planetDialogBackdrop.hidden=false;document.body.style.overflow='hidden';requestAnimationFrame(()=>{planetDialog.scrollTop=0;const body=planetDialog.querySelector('.planet-dialog-body');if(body)body.scrollTop=0});setTimeout(()=>$('#planetDialogClose').focus(),30)
-}
-function closePlanetDialog(restoreFocus=true){if(planetDialogBackdrop.hidden)return;planetDialogBackdrop.hidden=true;document.body.style.overflow='';$$('.planet-node').forEach(p=>p.setAttribute('aria-expanded','false'));if(restoreFocus&&lastPlanetTrigger){lastPlanetTrigger.focus()}lastPlanetTrigger=null;activePlanetCategory=null}
-function categoryIconSrc(cat){const node=$$('.planet-node').find(n=>n.dataset.category===cat);return node?.querySelector('.planet-art img')?.currentSrc||node?.querySelector('.planet-art img')?.src||''}
 function renderCommonsCategories(){const root=$('#commonsCategories');if(!root)return;const items=['전체',...categoryOrder];root.innerHTML=items.map(cat=>{if(cat==='전체')return `<button class="commons-category ${commonsCategory==='전체'?'active':''}" type="button" data-commons-category="전체"><span class="commons-category-all">✦</span><span>전체</span></button>`;const src=categoryIconSrc(cat);return `<button class="commons-category ${commonsCategory===cat?'active':''}" type="button" data-commons-category="${escapeHtml(cat)}"><span class="commons-category-icon">${src?`<img src="${src}" alt="">`:''}</span><span>${escapeHtml(cat)}</span></button>`}).join('')}
 function commonsPlanetRows(){if(commonsCategory==='전체')return categoryOrder.flatMap(cat=>planetCatalog[cat].public.map(p=>({...p,_category:cat})));return (planetCatalog[commonsCategory]?.public||[]).map(p=>({...p,_category:commonsCategory}))}
 function renderCommons(){renderCommonsCategories();const rows=sortPlanetList(commonsPlanetRows(),commonsSort);$('#commonsTitle').textContent=commonsCategory==='전체'?'전체 공개 행성':`${commonsCategory} 공개 행성`;$('#commonsSummary').textContent=commonsCategory==='전체'?`지금 광장에 공개된 ${rows.length}개의 실제 스터디룸을 둘러볼 수 있어요.`:`${commonsCategory}에서 공개된 ${rows.length}개의 스터디룸을 보고 있어요.`;$('#commonsPlanetGrid').innerHTML=rows.length?rows.map(p=>publicPlanetCard(p,p._category||commonsCategory)).join(''):'<div class="commons-empty">아직 공개된 행성이 없어요.</div>';$$('[data-commons-sort]',$('#commonsSort')).forEach(b=>b.classList.toggle('active',b.dataset.commonsSort===commonsSort))}
-async function openCommons(category=commonsCategory){await openSquareCategory(category)}
-let planetFocusActive=false;
-function enterPlanetFocus(){return false}
-function exitPlanetFocus(){planetFocusActive=false;const hero=$('#view-home .hero');hero?.classList.remove('planet-focus');document.body.classList.remove('planet-focus-active')}
-const homeWorld=$('#view-home .world'),homeHeroCopy=$('#view-home .hero-copy');
-$$('#view-home .planet-node').forEach(node=>{node.removeAttribute('aria-hidden');node.setAttribute('aria-expanded','false');node.addEventListener('click',()=>openPlanetDialog(node.dataset.category,node))});
-$('#planetDialogClose').addEventListener('click',()=>closePlanetDialog());
-planetDialogBackdrop.addEventListener('click',e=>{if(e.target===planetDialogBackdrop)closePlanetDialog()});
 async function openSquareCategory(category='전체'){
  try{await ensureDiscoveryCatalog()}catch(_e){showToast('공개 스터디 목록을 불러오지 못했어요.');return}
  const selected=category&&category!=='전체'&&planetCatalog[category]?category:'전체';commonsCategory=selected;renderCommons();switchView('commons');const query=selected==='전체'?'':`?category=${encodeURIComponent(selected)}`;try{if(location.protocol==='http:'||location.protocol==='https:')history.replaceState({view:'commons',category:selected},'',`/square${query}`);else history.replaceState({view:'commons',category:selected},'',`#/square${query}`)}catch(e){}
 }
-$('#publicPlanetMore').addEventListener('click',()=>{const category=activePlanetCategory||'전체';closePlanetDialog(false);openSquareCategory(category)});
+async function openCommons(category=commonsCategory){await openSquareCategory(category)}
+let planetFocusActive=false;
+function exitPlanetFocus(){planetFocusActive=false;const hero=$('#view-home .hero');hero?.classList.remove('planet-focus');document.body.classList.remove('planet-focus-active')}
+$$('#view-home .planet-node').forEach(node=>{node.removeAttribute('aria-hidden');node.setAttribute('aria-expanded','false');node.addEventListener('click',()=>openPlanetDialog(node.dataset.category,node))});
+$('#planetDialogClose')?.addEventListener('click',()=>closePlanetDialog());
+planetDialogBackdrop?.addEventListener('click',e=>{if(e.target===planetDialogBackdrop)closePlanetDialog()});
+$('#publicPlanetMore')?.addEventListener('click',()=>{const category=activePlanetCategory||'전체';closePlanetDialog(false);openSquareCategory(category)});
+function captureRoomReturnContext(){
+ const view=state.view==='runtime'?(readDemoProfile()?'rooms':'commons'):state.view;
+ return {view,category:view==='commons'?commonsCategory:null,scrollY:Math.max(0,window.scrollY||0)};
+}
+function runtimeBackLabel(context=roomReturnContext){
+ if(context?.view==='commons')return '← 광장으로';
+ if(context?.view==='home')return '← 홈으로';
+ if(context?.view==='community'||String(context?.view||'').startsWith('community'))return '← 커뮤니티로';
+ return '← 내 행성으로';
+}
+function syncRuntimeBackButton(){const btn=$('#runtimeBack');if(btn)btn.textContent=runtimeBackLabel(roomReturnContext)}
+async function returnFromRuntime(){
+ const context=roomReturnContext||{view:readDemoProfile()?'rooms':'commons',category:commonsCategory,scrollY:0};
+ await exitRoomVisit('manual');activeStudySpaceId=null;activeStudySpaceMeta=null;
+ if(context.view==='commons'){await openSquareCategory(context.category||'전체')}
+ else{const target=context.view&&context.view!=='runtime'?context.view:(readDemoProfile()?'rooms':'home');switchView(target);if(typeof syncAppRoute==='function')syncAppRoute(target);if(target==='rooms')await refreshMyStudySpaces().catch(()=>{})}
+ const y=Number(context.scrollY||0);requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'auto'}));roomReturnContext=null;
+}
 $('#commonsCategories').addEventListener('click',e=>{const btn=e.target.closest('[data-commons-category]');if(!btn)return;commonsCategory=btn.dataset.commonsCategory;renderCommons();window.scrollTo({top:0,behavior:'smooth'})});
 $('#commonsSort').addEventListener('click',e=>{const btn=e.target.closest('[data-commons-sort]');if(!btn)return;commonsSort=btn.dataset.commonsSort;renderCommons()});
 async function handlePlanetAction(e){
- const btn=e.target.closest('[data-planet-action]');if(!btn)return;const room=btn.dataset.room,spaceId=btn.dataset.spaceId,action=btn.dataset.planetAction;if(!planetDialogBackdrop.hidden)closePlanetDialog(false);
+ const btn=e.target.closest('[data-planet-action]');if(!btn)return;const room=btn.dataset.room,spaceId=btn.dataset.spaceId,action=btn.dataset.planetAction;
+ const exactMeta=resolveStudySpaceMeta(spaceId);if(planetDialogBackdrop&&!planetDialogBackdrop.hidden)closePlanetDialog(false);
  if(action==='join'){
-   const profile=readDemoProfile();if(!profile){showToast('Join하려면 나만의 행성 열쇠가 필요해요.');if(typeof window.openPlanetKeyModal==='function')window.openPlanetKeyModal('Join하려면 먼저 내 행성 열쇠를 연결해 주세요.');return}
-   try{await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(spaceId)}/join`,{method:'POST'});await refreshMyStudySpaces();showToast('이 공개 스터디에 Join했어요. 내 행성에 연결했습니다.');openRoom(room,spaceId)}catch(error){showToast(error?.message||'이 스터디에 참여하지 못했어요.')}
+   const profile=readDemoProfile();if(!profile){showToast('Join하려면 나만의 행성 열쇠가 필요해요.');if(typeof window.openPlanetKeyModal==='function')window.openPlanetKeyModal('Join하려면 먼저 내 행성 열쇠를 연결해 주세요.','general');return}
+   try{await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(spaceId)}/join`,{method:'POST'});await refreshMyStudySpaces();showToast('이 공개 스터디에 Join했어요. 내 행성에 연결했습니다.');openRoom(room,spaceId,resolveStudySpaceMeta(spaceId,exactMeta))}catch(error){showToast(error?.message||'이 스터디에 참여하지 못했어요.')}
    return;
  }
  if(spaceId)apiFetch(`/api/v1/discovery/spaces/${encodeURIComponent(spaceId)}/visit`,{method:'POST'}).catch(()=>{});
- openRoom(room);
+ openRoom(room,spaceId,exactMeta);
 }
-planetDialog.addEventListener('click',handlePlanetAction);
 $('#commonsPlanetGrid').addEventListener('click',handlePlanetAction);
+$('#publicPlanets')?.addEventListener('click',handlePlanetAction);
 $('#commonsCreate').addEventListener('click',()=>{switchView('home');setTimeout(()=>{heroInput.value='';activeSearchTab='purpose';activeSearchTag=null;renderSearchChips();syncSearchFieldState();heroInput.focus()},250)});
 
 $('#myRooms').innerHTML='<article class="room-card room-empty"><div class="room-body"><h3>내 행성을 불러오는 중…</h3></div></article>';
@@ -288,7 +371,7 @@ function openRoom(key,spaceId=null){
  state.currentRoom=key; if(typeof saveDemoSession==='function') saveDemoSession({currentRoom:key,lastView:'runtime'}); const r=rooms[key];
  document.body.dataset.runtimeRoom=key;
  $('#rtIcon').textContent=r.icon;$('#rtTitle').textContent=r.title;$('#rtSub').textContent=r.desc;
- $('#rtChips').innerHTML=`<span class="meta-pill">${r.recipe}</span><span class="meta-pill">Activity · ${r.activity}</span><span class="meta-pill">Agent · ${r.agent}</span><span class="meta-pill">Assessment · ${r.assessment}</span>`;
+ $('#rtChips').innerHTML=`<span class="meta-pill">${escapeHtml(r.category)}</span><span class="meta-pill">${escapeHtml(r.modules.slice(0,2).join(' · '))}</span>`;
  $('#runtimeArea').innerHTML=renderRuntime(key);switchView('runtime');bindRuntime(key);
 }
 function renderRuntime(key){
@@ -321,9 +404,9 @@ target = 9
 }</div><div class="dojo-console" id="tests"><span>TEST RUNNER</span><div><b class="pass">PASS</b> Example 1</div><div><b class="fail">WAIT</b> Duplicate values</div><div><b class="fail">WAIT</b> Negative numbers</div></div></main>
   <aside class="dojo-coach"><div class="dojo-label">AI COACH · ON DEMAND</div><div class="coach-orb">✦</div><p id="codeHint">아직 정답은 말하지 않을게요. 현재 값의 짝을 이전에 본 적 있는지 빠르게 확인할 자료구조가 무엇인지 생각해보세요.</p><button id="hintBtn" type="button">다음 힌트 열기</button><small>AI는 요청할 때만 개입합니다.</small></aside>
 </div>`}
-function languageRuntime(){return `<div class="language-sim" aria-label="도쿄 편의점 음성 롤플레이 시뮬레이터">
-  <section class="konbini-scene"><div class="store-sign">TOKYO · KONBINI · 24H</div><div class="store-shelves"><i></i><i></i><i></i></div><div class="clerk-character" aria-label="AI 편의점 점원"><span>いらっしゃいませ</span><div>🧑🏻‍💼</div></div><div class="ai-speech-card" id="npcSpeech" aria-live="polite"><div class="speech-top"><strong>AI 점원</strong><div class="voice-wave" id="voiceWave" aria-label="AI 음성 파형"><i></i><i></i><i></i><i></i><i></i></div></div><p>いらっしゃいませ。袋はご利用になりますか？</p><small>봉투 필요하세요?</small><div class="speech-audio-controls"><button id="replaySpeech" type="button">🔊 음성 재생</button><button id="slowSpeech" type="button">🐢 0.8배속 재생</button></div></div></section>
-  <section class="language-live-panel" aria-label="라이브 음성 대화 컨트롤"><div class="live-goal"><span>LIVE ROLEPLAY</span><strong>말로 바로 대답해보세요</strong><p>대화 흐름은 유지하고, 교정은 상황이 끝난 뒤 한 번에 보여드려요.</p></div><button class="live-mic" id="micBtn" type="button" aria-pressed="false"><span class="mic-core">🎙️</span><span class="mic-status" id="micStatus">마이크로 대답하기</span><span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="mic-rings" aria-hidden="true"><i></i><i></i><i></i></span></button><div class="live-transcript" id="liveTranscript" aria-live="polite">말하면 이곳에 실시간으로 들리는 문장이 표시돼요.</div><div class="inputbar language-text-input"><input id="langInput" placeholder="텍스트로 답하기 · 예: 袋はいりません。"><button type="button" id="langTextSend" aria-label="텍스트 답변 전송">→</button></div><div class="language-goal-row"><span>① 봉투 여부</span><span>② 결제 방법</span><span>③ 영수증</span></div></section>
+function languageRuntime(){const goal=activeStudySpaceMeta?.prompt||'원하는 언어와 상황으로 실전 회화를 연습합니다.';return `<div class="language-sim" aria-label="실전 회화 롤플레이 시뮬레이터">
+  <section class="konbini-scene"><div class="store-sign">LIVE · CONVERSATION</div><div class="store-shelves"><i></i><i></i><i></i></div><div class="clerk-character" aria-label="AI 회화 파트너"><span>ROLEPLAY</span><div>🗣️</div></div><div class="ai-speech-card" id="npcSpeech" aria-live="polite"><div class="speech-top"><strong>AI 회화 파트너</strong><div class="voice-wave" id="voiceWave" aria-label="AI 음성 파형"><i></i><i></i><i></i><i></i><i></i></div></div><p>Let's begin with the situation you requested.</p><small>${escapeHtml(goal)}</small><div class="speech-audio-controls"><button id="replaySpeech" type="button">🔊 음성 재생</button><button id="slowSpeech" type="button">🐢 0.8배속 재생</button></div></div></section>
+  <section class="language-live-panel" aria-label="라이브 음성 대화 컨트롤"><div class="live-goal"><span>LIVE ROLEPLAY</span><strong>요청한 상황으로 바로 대화해보세요</strong><p>정해진 장소나 대본을 강요하지 않고, 현재 학습 목표를 따라갑니다.</p></div><button class="live-mic" id="micBtn" type="button" aria-pressed="false"><span class="mic-core">🎙️</span><span class="mic-status" id="micStatus">마이크로 대답하기</span><span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="mic-rings" aria-hidden="true"><i></i><i></i><i></i></span></button><div class="live-transcript" id="liveTranscript" aria-live="polite">말하면 이곳에 실시간으로 들리는 문장이 표시돼요.</div><div class="inputbar language-text-input"><input id="langInput" placeholder="텍스트로 답하기"><button type="button" id="langTextSend" aria-label="텍스트 답변 전송">→</button></div></section>
 </div>`}
 function teachRuntime(){return `<div class="teachback-classroom">
   <section class="chalkboard-stage"><div class="chalk-dust" aria-hidden="true"></div><div class="chalk-label">TEACH-BACK CLASS</div><h2>오늘은 당신이 선생님이에요.</h2><p>“세포 호흡”을 학생에게 설명하듯 말하거나 적어보세요.</p><div class="chalk-input"><textarea id="teachInput" placeholder="세포 호흡은 포도당에서 에너지를 얻는 과정인데…"></textarea><button id="teachSubmit" type="button">설명 들려주기 →</button></div></section>
@@ -339,10 +422,10 @@ function essayRuntime(){return `<div class="workgrid" style="grid-template-colum
  <section class="box"><div class="box-title">내 글 <span class="muted">2차 수정본</span></div><div class="box-pad"><div class="notepad" contenteditable="true" style="min-height:540px;font-size:13px">기술이 발전할수록 인간의 선택은 더 자유로워지는가. 편리함은 선택의 폭을 넓히지만, 동시에 선택을 대신하는 알고리즘에 의존하게 만들기도 한다...\n\n여기에 이어서 작성해보세요.</div></div></section>
  <div class="stack"><section class="box"><div class="box-title">비평가의 지적 3개 <span class="tag">대필 금지</span></div><div class="box-pad"><ol style="font-size:12px;line-height:1.7;padding-left:20px"><li>첫 문단의 핵심 주장이 아직 넓습니다.</li><li>‘편리함’의 예시가 추상적입니다.</li><li>반대 사례를 한 번 다루면 논지가 단단해집니다.</li></ol><div class="hint">수정문을 대신 써주지 않습니다. 사용자가 고친 뒤 다시 평가합니다.</div></div></section><section class="box"><div class="box-title">평가 기준</div><div class="box-pad rubric"><div class="rubric-row"><span>주장 명확성</span><div class="progress"><i style="width:66%"></i></div><b>66</b></div><div class="rubric-row"><span>근거 구체성</span><div class="progress"><i style="width:48%"></i></div><b>48</b></div><div class="rubric-row"><span>반론 처리</span><div class="progress"><i style="width:32%"></i></div><b>32</b></div></div></section></div></div>`}
 function speakLanguageLine(rate=1){
- const line=$('#npcSpeech p')?.textContent?.trim()||'いらっしゃいませ。袋はご利用になりますか？';
+ const line=$('#npcSpeech p')?.textContent?.trim()||'Let\'s begin with the situation you requested.';
  const wave=$('#voiceWave');
  if(!('speechSynthesis' in window)){showToast('이 브라우저에서는 음성 재생을 지원하지 않아요.');return}
- speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(line);u.lang='ja-JP';u.rate=rate;u.pitch=1;u.volume=1;if(wave)wave.classList.add('speaking');u.onend=()=>wave?.classList.remove('speaking');u.onerror=()=>wave?.classList.remove('speaking');speechSynthesis.speak(u);
+ speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(line);u.lang='en-US';u.rate=rate;u.pitch=1;u.volume=1;if(wave)wave.classList.add('speaking');u.onend=()=>wave?.classList.remove('speaking');u.onerror=()=>wave?.classList.remove('speaking');speechSynthesis.speak(u);
 }
 function bindRuntime(key){
  if(key==='paper'){
@@ -364,6 +447,7 @@ function bindRuntime(key){
  if(key==='memory'){$('#flash').onclick=()=>{$('#flash').innerHTML='<div><div class="word">어디에나 존재하는</div><p>ubiquitous · 3번째 복습</p></div>'}}
 }
 
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&planetDialogBackdrop&&!planetDialogBackdrop.hidden)closePlanetDialog()});
 const backdrop=$('#backdrop'),drawer=$('#drawer'),builder=$('#builderPrompt');
 function inferPrompt(t){
  t=t.toLowerCase();let k='teach';
@@ -375,7 +459,16 @@ function inferPrompt(t){
  else if(/암기|단어|플래시/.test(t))k='memory';
  else if(/에세이|글쓰기|논술|비평/.test(t))k='essay';
  state.builderRoom=k;const r=rooms[k];
- $('#recipeId').textContent=r.recipe;$('#cfgRecipe').textContent=r.title;$('#cfgActivity').textContent=r.activity;$('#cfgAgent').textContent=r.agent;$('#cfgAssessment').textContent=r.assessment;$('#cfgPolicy').textContent=r.policy;$('#cfgLayout').textContent=r.layout;
+ const friendly={
+  paper:{activity:'원문을 읽고 필요한 부분만 설명받기',assessment:'노트와 이해 확인',policy:'요청한 순간에만 설명',layout:'읽기 화면과 노트'},
+  coding:{activity:'문제를 직접 풀며 학습',assessment:'빠른 테스트',policy:'먼저 시도한 뒤 힌트',layout:'문제와 코드 편집기'},
+  language:{activity:'상황에 맞춘 실전 회화',assessment:'역할극과 표현 점검',policy:'대화 흐름 뒤에 짧게 교정',layout:'대화 중심 화면'},
+  teach:{activity:'내가 설명하며 개념 점검',assessment:'빠진 개념 확인',policy:'질문과 힌트 중심',layout:'설명과 피드백'},
+  exam:{activity:'실전처럼 문제 풀기',assessment:'시험 결과와 오답',policy:'시험이 끝난 뒤 해설',layout:'집중 시험 화면'},
+  memory:{activity:'회상하며 반복 암기',assessment:'카드 복습',policy:'답을 떠올린 뒤 확인',layout:'카드 중심 화면'},
+  essay:{activity:'직접 쓰고 수정하며 학습',assessment:'글의 약점과 수정 확인',policy:'대신 써주지 않고 피드백',layout:'글쓰기와 비평'}
+ }[k];
+ $('#cfgRecipe').textContent=r.title;$('#cfgActivity').textContent=friendly.activity;$('#cfgAgent').textContent=r.agent;$('#cfgAssessment').textContent=friendly.assessment;$('#cfgPolicy').textContent=friendly.policy;$('#cfgLayout').textContent=friendly.layout;
 }
 function openBuilder(text=''){builder.value=text;inferPrompt(text);backdrop.classList.add('show');drawer.classList.add('show');setTimeout(()=>builder.focus(),120)}
 function closeBuilder(){backdrop.classList.remove('show');drawer.classList.remove('show')}
@@ -441,7 +534,7 @@ rollingPlaceholder.onclick=()=>heroInput.focus();
 renderSearchChips();showRollingExample(0,false);startRollingPlaceholder();
 $('#heroForm').onsubmit=e=>{e.preventDefault();requestStudySpaceCreation()};
 
-$('#create').onclick=async()=>{const prompt=builder.value.trim();if(!prompt){showToast('만들고 싶은 학습 환경을 먼저 적어주세요.');builder.focus();return}savePendingStudy({version:1,prompt,source:'builder',createdAt:new Date().toISOString()});closeBuilder();if(!readDemoProfile()){openDemoAccount('pending-study');return}await continuePendingStudySetup()};$('#preview').onclick=()=>showToast(`${rooms[state.builderRoom].recipe} 구성을 미리 확인 중입니다.`);
+$('#create').onclick=async()=>{const prompt=builder.value.trim();if(!prompt){showToast('만들고 싶은 학습 환경을 먼저 적어주세요.');builder.focus();return}savePendingStudy({version:1,prompt,title:studyTitleFromPrompt(prompt),source:'builder',createdAt:new Date().toISOString()});closeBuilder();if(!readDemoProfile()){openDemoAccount('pending-study');return}await continuePendingStudySetup()};$('#preview').onclick=()=>showToast(`${rooms[state.builderRoom].recipe} 구성을 미리 확인 중입니다.`);
 $('#modifyRoom').onclick=()=>openBuilder(`현재 ${rooms[state.currentRoom].title}의 학습 로직은 유지하고, `);
 const loginBtn=$('#login'); if(loginBtn) loginBtn.onclick=()=>showToast('데모에서는 별도 로그인을 사용하지 않습니다.');
 
@@ -457,6 +550,8 @@ const guestLaunchLabel=$('#guestLaunchLabel');
 const demoProfileStatus=$('#demoProfileStatus');
 const demoNickname=$('#demoNickname');
 let pendingDemoDestination='rooms';
+let pendingAccountEntryMode='general';
+let pendingKeyEntryMode='general';
 const NICKNAME_PLACEHOLDER_EXAMPLES=['세계최강','㉠┤울공쥬☆','쿨ㅎ┼게살ㅈ┼','눈맑은 아이'];
 function chooseRandomItem(items){return items[Math.floor(Math.random()*items.length)]}
 function assignAuthPlaceholders(){
@@ -474,10 +569,23 @@ function saveDemoSession(patch={}){
   let prev={};try{prev=JSON.parse(localStorage.getItem(DEMO_SESSION_KEY)||'{}')}catch(e){}
   localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({...prev,...patch,lastActiveAt:new Date().toISOString()}));
 }
-async function issuePlanetKey(nickname){
-  const pendingStudy=readPendingStudy();const data=await apiFetch(STUDYWORLD_SETTINGS.endpoints.planetKeyIssue,{method:'POST',body:JSON.stringify({nickname,continuity:'planet-key',pendingStudy:pendingStudy||null})});const profile=data.profile||{};
-  return{id:profile.id,nickname:profile.nickname||nickname,role:profile.role||'user',accountOrigin:profile.accountOrigin||'member',publicCode:profile.publicCode||'',planetImageUrl:profile.planetImageUrl||null,maskedPlanetKey:maskPlanetKey(),planetKey:data.planetKey,createdAt:profile.createdAt||new Date().toISOString(),serverBacked:true};
+async function issuePlanetKey(nickname,entryMode='general'){
+  const pendingStudy=readPendingStudy();const data=await apiFetch(STUDYWORLD_SETTINGS.endpoints.planetKeyIssue,{method:'POST',body:JSON.stringify({nickname,continuity:'planet-key',pendingStudy:pendingStudy||null,entryMode:entryMode==='student'?'student':'general'})});const profile=data.profile||{};
+  return{id:profile.id,nickname:profile.nickname||nickname,role:profile.role||'user',accountOrigin:profile.accountOrigin||'member',accountSegment:profile.accountSegment||'general',studentStatus:profile.studentStatus||'none',studentStartedAt:profile.studentStartedAt||null,publicCode:profile.publicCode||'',planetImageUrl:profile.planetImageUrl||null,maskedPlanetKey:maskPlanetKey(),planetKey:data.planetKey,createdAt:profile.createdAt||new Date().toISOString(),sessionStartedAt:profile.sessionStartedAt||new Date().toISOString(),serverBacked:true};
 }
+
+let planetSessionTick=0;
+function profileSessionStartedAt(){
+ const p=readDemoProfile();if(p?.sessionStartedAt)return p.sessionStartedAt;
+ try{return JSON.parse(localStorage.getItem(DEMO_SESSION_KEY)||'{}')?.enteredAt||null}catch(_e){return null}
+}
+function paintPlanetSessionTime(){
+ const el=$('#profileSessionTime');if(!el)return;const startedAt=profileSessionStartedAt();
+ if(!startedAt||!readDemoProfile()){el.textContent='현재 행성 체류 00:00';return}
+ const seconds=Math.max(0,Math.floor((Date.now()-Date.parse(startedAt))/1000));el.textContent=`현재 행성 체류 ${formatStay(seconds)}`;
+}
+function startPlanetSessionClock(){clearInterval(planetSessionTick);paintPlanetSessionTime();if(readDemoProfile())planetSessionTick=setInterval(paintPlanetSessionTime,1000)}
+function stopPlanetSessionClock(){clearInterval(planetSessionTick);planetSessionTick=0;paintPlanetSessionTime()}
 
 function updateDemoLaunchUI(){
   const p=readDemoProfile();
@@ -485,26 +593,36 @@ function updateDemoLaunchUI(){
   const guestKeyLogin=$('#gnbKeyLogin');
   const guestKeyIssue=$('#gnbKeyIssue');
   const myPlanetsNav=$('#navMyPlanets');
+  const studentBenefit=$('#studentBenefitCard');
   if(p){
     if(guestLaunch){guestLaunchLabel.textContent='즉시 학습 시작';demoProfileStatus.hidden=false;demoProfileStatus.innerHTML=`🪐 <strong>${escapeHtml(p.nickname)}</strong>님의 행성이 연결되어 있어요.${p.publicCode?` <span class="muted">${escapeHtml(p.publicCode)}</span>`:''}`}
+    if(studentBenefit)studentBenefit.hidden=p.accountSegment!=='student';
     if(guestKeyLogin)guestKeyLogin.hidden=true;
     if(guestKeyIssue)guestKeyIssue.hidden=true;
     if(myPlanetsNav)myPlanetsNav.hidden=false;
-    if(trigger){trigger.hidden=false;$('#profileMenuName').textContent=p.nickname;$('#profileDropdownName').textContent=`${p.nickname}님의 행성`;$('#profileDropdownKey').textContent=(p.publicCode||'공개 코드 준비 중');const img=$('#profileDropdownPlanetImage');if(img)img.src=p.planetImageUrl||'/favicon-192.png';const adminButton=$('#adminManagedUsers');if(adminButton)adminButton.hidden=p.role!=='admin'}
+    if(trigger){trigger.hidden=false;$('#profileMenuName').textContent=p.nickname;$('#profileDropdownName').textContent=`${p.nickname}님의 행성`;$('#profileDropdownKey').textContent=(p.publicCode||'공개 코드 준비 중');const img=$('#profileDropdownPlanetImage');if(img)img.src=p.planetImageUrl||'/favicon-192.png';const adminButton=$('#adminManagedUsers');if(adminButton)adminButton.hidden=p.role!=='admin';const supportAdminButton=$('#adminSupportTickets');if(supportAdminButton)supportAdminButton.hidden=p.role!=='admin'}
   }else{
+    if(studentBenefit)studentBenefit.hidden=true;
     if(guestLaunch){guestLaunchLabel.textContent='즉시 학습 시작';demoProfileStatus.hidden=true;demoProfileStatus.textContent=''}
     if(guestKeyLogin)guestKeyLogin.hidden=false;
     if(guestKeyIssue)guestKeyIssue.hidden=false;
     if(myPlanetsNav)myPlanetsNav.hidden=true;
-    if(trigger){trigger.hidden=true;trigger.setAttribute('aria-expanded','false');$('#profileDropdown').hidden=true}const adminButton=$('#adminManagedUsers');if(adminButton)adminButton.hidden=true
+    if(trigger){trigger.hidden=true;trigger.setAttribute('aria-expanded','false');$('#profileDropdown').hidden=true}const adminButton=$('#adminManagedUsers');if(adminButton)adminButton.hidden=true;const supportAdminButton=$('#adminSupportTickets');if(supportAdminButton)supportAdminButton.hidden=true
   }
+  if(p)startPlanetSessionClock();else stopPlanetSessionClock();
   requestAnimationFrame(()=>{if(typeof syncGnbIndicator==='function')syncGnbIndicator(false)});
 }
-function openDemoAccount(destination='rooms'){
+function openDemoAccount(destination='rooms',entryMode='general'){
   pendingDemoDestination=destination;
+  pendingAccountEntryMode=entryMode==='student'?'student':'general';
   const existing=readDemoProfile();
   if(existing){ if(destination==='pending-study')continuePendingStudySetup(); else enterDemoApp(destination); return; }
+  const student=pendingAccountEntryMode==='student';
   const notice=$('#pendingStudyNotice');if(notice)notice.hidden=destination!=='pending-study';
+  const benefit=$('#studentEntryBenefit');if(benefit)benefit.hidden=!student;
+  const existingKey=$('#studentExistingKey');if(existingKey)existingKey.hidden=!student;
+  const title=$('#demoAccountTitle');if(title)title.textContent=student?'학생 데모로 시작하기':'별명만 정하면 행성 열쇠가 발급돼요';
+  const intro=title?.nextElementSibling;if(intro&&intro.tagName==='P')intro.textContent=student?'별명만 정하면 학생 데모 혜택이 연결된 행성 열쇠를 발급합니다. 학생 인증과 유료 결제는 아직 필요하지 않아요.':'이메일·전화번호·비밀번호 없이 별명 하나만 입력해 주세요. 닉네임은 중복되지 않도록 확인한 뒤 전용 열쇠를 발급합니다.';
   assignAuthPlaceholders();
   nicknameAvailable=false;demoNickname.value='';$('#demoAccountSubmit').disabled=true;$('#nicknameStatus').className='nickname-status';$('#nicknameStatus').textContent='';
   demoAccountBackdrop.hidden=false;
@@ -529,16 +647,19 @@ function syncAppRoute(destination){
     else history.replaceState({view:destination},'',`#${route}`);
   }catch(e){}
 }
-function enterDemoApp(destination='rooms'){
+async function enterDemoApp(destination='rooms',{announce=true}={}){
   const p=readDemoProfile(); if(!p){openDemoAccount(destination);return}
+  const changed=state.view!==destination;
   document.body.classList.add('app-mode');
   switchView(destination);
   syncAppRoute(destination);
   saveDemoSession({lastView:destination});
-  showToast(`${p.nickname}님의 행성을 열었습니다.`);
+  if(destination==='rooms')await refreshMyStudySpaces().catch(()=>{});
+  if(announce&&changed)showToast(`${p.nickname}님의 내 행성을 열었습니다.`);
 }
-if(guestLaunch) guestLaunch.onclick=()=>openDemoAccount('rooms');
+if(guestLaunch) guestLaunch.onclick=()=>openDemoAccount('rooms','general');
 $('#demoAccountClose').onclick=closeDemoAccount;
+$('#studentExistingKey')?.addEventListener('click',()=>{closeDemoAccount();if(typeof window.openPlanetKeyModal==='function')window.openPlanetKeyModal('학생 데모 혜택을 기존 행성에 연결할 수 있어요.','student')});
 demoAccountBackdrop.addEventListener('click',e=>{if(e.target===demoAccountBackdrop)closeDemoAccount()});
 $('#planetKeyIssuedClose').onclick=closePlanetKeyIssued;
 planetKeyIssuedBackdrop.addEventListener('click',e=>{if(e.target===planetKeyIssuedBackdrop)closePlanetKeyIssued()});
@@ -557,10 +678,10 @@ $('#demoAccountForm').addEventListener('submit',async e=>{
   if(!nicknameAvailable){demoNickname.focus();return}
   const submit=$('#demoAccountSubmit');submit.disabled=true;submit.textContent='행성 열쇠를 발급하고 있어요…';
   try{
-    const profile=await issuePlanetKey(nickname);
+    const profile=await issuePlanetKey(nickname,pendingAccountEntryMode);
     if(!profile.planetKey)throw new Error('PLANET_KEY_MISSING');
-    localStorage.setItem(DEMO_PROFILE_KEY,JSON.stringify({id:profile.id,nickname:profile.nickname,role:profile.role,accountOrigin:profile.accountOrigin,publicCode:profile.publicCode,planetImageUrl:profile.planetImageUrl,maskedPlanetKey:maskPlanetKey(),createdAt:profile.createdAt}));
-    localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({lastView:pendingDemoDestination,currentRoom:state.currentRoom,lastActiveAt:new Date().toISOString()}));
+    localStorage.setItem(DEMO_PROFILE_KEY,JSON.stringify({id:profile.id,nickname:profile.nickname,role:profile.role,accountOrigin:profile.accountOrigin,accountSegment:profile.accountSegment||'general',studentStatus:profile.studentStatus||'none',studentStartedAt:profile.studentStartedAt||null,publicCode:profile.publicCode,planetImageUrl:profile.planetImageUrl,maskedPlanetKey:maskPlanetKey(),createdAt:profile.createdAt,sessionStartedAt:profile.sessionStartedAt}));
+    localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({lastView:pendingDemoDestination,currentRoom:state.currentRoom,enteredAt:profile.sessionStartedAt,lastActiveAt:new Date().toISOString()}));
     closeDemoAccount();updateDemoLaunchUI();openPlanetKeyIssued(profile);
   }catch(err){status.className='nickname-status unavailable';status.textContent='열쇠 발급에 실패했습니다. 잠시 후 다시 시도해 주세요.'}
   finally{submit.textContent='🔑 나만의 행성 열쇠 발급하기 →';submit.disabled=!nicknameAvailable}
@@ -576,15 +697,15 @@ async function savePlanetKeyCard(profile){
   const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=720;const ctx=canvas.getContext('2d');
   const grad=ctx.createLinearGradient(0,0,1200,720);grad.addColorStop(0,'#f7f4ea');grad.addColorStop(.58,'#f4f7ed');grad.addColorStop(1,'#e9f1e3');ctx.fillStyle=grad;ctx.fillRect(0,0,1200,720);
   ctx.strokeStyle='#d1ddd0';ctx.lineWidth=3;roundRect(ctx,48,48,1104,624,40);ctx.stroke();
-  ctx.fillStyle='#0d4939';ctx.font='700 32px SchoolSafetyRoundedSmile, sans-serif';ctx.fillText('STUDYWORLD · MY PLANET',90,118);
+  ctx.fillStyle='#0d4939';ctx.font='700 32px Pretendard, sans-serif';ctx.fillText('STUDYWORLD · MY PLANET',90,118);
   // simple planet mark
   ctx.beginPath();ctx.arc(170,278,86,0,Math.PI*2);ctx.fillStyle='#86b67c';ctx.fill();ctx.beginPath();ctx.arc(139,247,36,0,Math.PI*2);ctx.fillStyle='#dff0b5';ctx.fill();ctx.strokeStyle='#e3c85f';ctx.lineWidth=10;ctx.beginPath();ctx.ellipse(170,278,135,42,-.18,0,Math.PI*2);ctx.stroke();
-  ctx.fillStyle='#0d4939';ctx.font='700 46px Cafe24Surround, sans-serif';ctx.fillText(`모험가 ${profile.nickname}님의 행성`,315,238);
-  ctx.fillStyle='#586860';ctx.font='400 26px SchoolSafetyRoundedSmile, sans-serif';ctx.fillText('공유용 행성 카드 · 복구용 비밀 열쇠는 이미지에 포함하지 않습니다',315,292);
+  ctx.fillStyle='#0d4939';ctx.font='700 46px Pretendard, sans-serif';ctx.fillText(`모험가 ${profile.nickname}님의 행성`,315,238);
+  ctx.fillStyle='#586860';ctx.font='400 26px Pretendard, sans-serif';ctx.fillText('공유용 행성 카드 · 복구용 비밀 열쇠는 이미지에 포함하지 않습니다',315,292);
   ctx.fillStyle='#ffffff';roundRect(ctx,315,340,750,112,24);ctx.fill();ctx.strokeStyle='#cbd8c9';ctx.lineWidth=2;ctx.stroke();
   ctx.fillStyle='#0d4939';ctx.font='700 42px ui-monospace, monospace';ctx.fillText(profile.publicCode||'PL-STUDYWORLD',355,410);
-  ctx.fillStyle='#748279';ctx.font='400 20px SchoolSafetyRoundedSmile, sans-serif';ctx.fillText('이 카드는 공유해도 되지만, 발급받은 전체 행성 열쇠는 절대 공유하지 마세요.',315,520);
-  ctx.fillStyle='#0d4939';ctx.font='700 22px SchoolSafetyRoundedSmile, sans-serif';ctx.fillText('HOPE · STUDYWORLD',90,626);
+  ctx.fillStyle='#748279';ctx.font='400 20px Pretendard, sans-serif';ctx.fillText('이 카드는 공유해도 되지만, 발급받은 전체 행성 열쇠는 절대 공유하지 마세요.',315,520);
+  ctx.fillStyle='#0d4939';ctx.font='700 22px Pretendard, sans-serif';ctx.fillText('HOPE · STUDYWORLD',90,626);
   const a=document.createElement('a');a.download=`studyworld-${profile.nickname}-planet-card.png`;a.href=canvas.toDataURL('image/png');a.click();
 }
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
@@ -594,7 +715,7 @@ const profileMenuTrigger=$('#profileMenuTrigger'),profileDropdown=$('#profileDro
 function closeProfileDropdown(){if(!profileDropdown||!profileMenuTrigger)return;profileDropdown.hidden=true;profileMenuTrigger.setAttribute('aria-expanded','false')}
 function openPlanetKeyLock(){const p=readDemoProfile();if(!p)return;closeProfileDropdown();$('#planetKeyLockMasked').textContent=maskPlanetKey();const copyButton=$('#planetKeyCopyAndLock');if(copyButton)copyButton.hidden=!issuedProfile?.planetKey;planetKeyLockBackdrop.hidden=false}
 function closePlanetKeyLock(){planetKeyLockBackdrop.hidden=true}
-async function detachPlanetKeyFromDevice(){try{await apiFetch(STUDYWORLD_SETTINGS.endpoints.logout,{method:'POST'})}catch(_e){}localStorage.removeItem(DEMO_PROFILE_KEY);localStorage.removeItem(DEMO_SESSION_KEY);localStorage.removeItem('studyworld.dynamic.space.v1');issuedProfile=null;document.body.classList.remove('app-mode');delete document.body.dataset.runtimeRoom;updateDemoLaunchUI();closePlanetKeyLock();switchView('launch');showToast('이 기기의 세션과 로컬 학습 작업을 안전하게 종료했어요.')}
+async function detachPlanetKeyFromDevice(){let logoutResult=null;try{if(activeRoomVisit)await exitRoomVisit('planet_exit',{silent:true});logoutResult=await apiFetch(STUDYWORLD_SETTINGS.endpoints.logout,{method:'POST'})}catch(_e){}localStorage.removeItem(DEMO_PROFILE_KEY);localStorage.removeItem(DEMO_SESSION_KEY);localStorage.removeItem('studyworld.dynamic.space.v1');localStorage.removeItem('studyworld.dynamic.space.v2');localStorage.removeItem('studyworld.dynamic.space.v3');issuedProfile=null;document.body.classList.remove('app-mode');delete document.body.dataset.runtimeRoom;stopPlanetSessionClock();updateDemoLaunchUI();closePlanetKeyLock();switchView('launch');const duration=Number(logoutResult?.durationSeconds||0);showToast(duration?`행성에서 퇴장했어요 · 이번 체류 ${formatStay(duration)}`:'이 기기의 행성 세션을 안전하게 종료했어요.')}
 if(profileMenuTrigger)profileMenuTrigger.addEventListener('click',e=>{e.stopPropagation();const open=profileDropdown.hidden;profileDropdown.hidden=!open;profileMenuTrigger.setAttribute('aria-expanded',String(open))});
 document.addEventListener('click',e=>{if(profileDropdown&&!profileDropdown.hidden&&!e.target.closest('#profileSlot'))closeProfileDropdown()});
 $('#profileLockKey')?.addEventListener('click',openPlanetKeyLock);$('#planetKeyLockClose')?.addEventListener('click',closePlanetKeyLock);planetKeyLockBackdrop?.addEventListener('click',e=>{if(e.target===planetKeyLockBackdrop)closePlanetKeyLock()});
@@ -603,9 +724,10 @@ $('#profileRotateKey')?.addEventListener('click',async()=>{
  if(!confirm('행성 열쇠를 다시 발급할까요? 이전 열쇠와 다른 기기의 기존 세션은 즉시 폐기됩니다.'))return;
  try{
   const result=await apiFetch(STUDYWORLD_SETTINGS.endpoints.planetKeyRotate,{method:'POST'});
-  const profile={...p,maskedPlanetKey:maskPlanetKey(),planetKey:result.planetKey,serverBacked:true};
-  localStorage.setItem(DEMO_PROFILE_KEY,JSON.stringify({...p,maskedPlanetKey:maskPlanetKey()}));
-  updateDemoLaunchUI();openPlanetKeyIssued(profile);showToast('새 행성 열쇠를 발급했어요. 이전 열쇠는 더 이상 사용할 수 없습니다.');
+  const sessionStartedAt=result.sessionStartedAt||new Date().toISOString();
+  const profile={...p,maskedPlanetKey:maskPlanetKey(),planetKey:result.planetKey,sessionStartedAt,serverBacked:true};
+  localStorage.setItem(DEMO_PROFILE_KEY,JSON.stringify({...p,maskedPlanetKey:maskPlanetKey(),sessionStartedAt}));
+  saveDemoSession({enteredAt:sessionStartedAt});updateDemoLaunchUI();openPlanetKeyIssued(profile);showToast('새 행성 열쇠를 발급했어요. 이전 열쇠는 더 이상 사용할 수 없습니다.');
  }catch(error){showToast(error?.message||'행성 열쇠를 다시 발급하지 못했어요.')}
 });
 $('#planetKeyLockPlain')?.addEventListener('click',detachPlanetKeyFromDevice);
@@ -667,63 +789,110 @@ adminManagedList?.addEventListener('click',async e=>{
   if(transfer){const row=transfer.closest('[data-admin-room]');const id=transfer.dataset.adminRoomTransfer;const ownerProfileId=row.querySelector('[data-admin-room-owner]').value;const current=adminManagedProfilesCache.find(p=>(p.rooms||[]).some(r=>r.id===id));if(!ownerProfileId||ownerProfileId===current?.id)return;if(!confirm('이 스터디룸의 방장을 변경할까요? 기존 방장은 소유권을 잃습니다.'))return;await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.adminStudySpaces}/${encodeURIComponent(id)}/transfer`,{method:'POST',body:JSON.stringify({ownerProfileId})});showToast('방장을 변경했어요.');discoveryCatalogLoaded=false;await loadAdminManaged();return}
  }catch(error){showToast(error?.message||'관리 작업을 완료하지 못했어요.')}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(adminKeyResultBackdrop&&!adminKeyResultBackdrop.hidden){closeAdminKeyResult();return}if(adminManagedBackdrop&&!adminManagedBackdrop.hidden)closeAdminManaged()}},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(adminKeyResultBackdrop&&!adminKeyResultBackdrop.hidden){closeAdminKeyResult();return}if(adminSupportBackdrop&&!adminSupportBackdrop.hidden){closeAdminSupport();return}if(adminManagedBackdrop&&!adminManagedBackdrop.hidden)closeAdminManaged()}},true);
 
-function openSupportModal(){
-  supportModalBackdrop.hidden=false;
-  const supportChatInput=$('#supportChatInput');
-  if(supportChatInput) setTimeout(()=>supportChatInput.focus(),60);
+function supportStatusLabel(status){return({ai_handling:'요정 확인 중',ai_resolved:'요정 답변 완료',staff_pending:'운영팀 확인 중',awaiting_user:'운영팀 답변 도착',resolved:'답변 완료',closed:'종료'})[status]||'대기 중'}
+function formatSupportTime(iso){if(!iso)return'';try{return new Date(iso).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}catch(_e){return''}}
+let activeSupportTicketCode='';
+let supportObjectUrls=[];
+function clearSupportObjectUrls(){for(const url of supportObjectUrls)URL.revokeObjectURL(url);supportObjectUrls=[]}
+async function supportAttachmentObjectUrl(url){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),STUDYWORLD_SETTINGS.requestTimeoutMs);
+ try{const response=await fetch(url,{credentials:'same-origin',signal:controller.signal});if(!response.ok)throw new Error('ATTACHMENT_LOAD_FAILED');const blob=await response.blob();const objectUrl=URL.createObjectURL(blob);supportObjectUrls.push(objectUrl);return objectUrl}finally{clearTimeout(timer)}
 }
-function closeSupportModal(){supportModalBackdrop.hidden=true}
+function supportMessageMarkup(message){
+ const sender=message.sender==='user'?'나':message.sender==='staff'?'운영팀':message.sender==='ai'?'요정':'안내';
+ const className=message.sender==='user'?'user':message.sender==='staff'?'staff':'fairy';
+ const body=escapeHtml(message.body||'').replace(/\n/g,'<br>');
+ const attachments=(message.attachments||[]).map(a=>`<div class="support-msg-attachment"><span>${escapeHtml(a.name||'첨부 이미지')}</span><img data-support-attachment-url="${escapeHtml(a.url)}" alt="문의 첨부 이미지" loading="lazy"></div>`).join('');
+ return `<div class="chat-msg ${className}" data-support-message-id="${escapeHtml(message.id||'')}"><strong>${sender}<small>${formatSupportTime(message.createdAt)}</small></strong><p>${body}</p>${attachments}</div>`;
+}
+async function hydrateSupportAttachments(root){
+ const images=$$('[data-support-attachment-url]',root);await Promise.all(images.map(async img=>{try{img.src=await supportAttachmentObjectUrl(img.dataset.supportAttachmentUrl)}catch(_e){img.replaceWith(Object.assign(document.createElement('span'),{textContent:'첨부 이미지를 불러오지 못했습니다.'}))}}));
+}
+function resetSupportConversation(){
+ activeSupportTicketCode='';clearSupportObjectUrls();
+ $('#supportTicketCode').textContent='새 문의';$('#supportTicketStatus').textContent='대기 중';$('#supportTicketStatus').dataset.status='';$('#supportCloseTicket').hidden=true;
+ $('#supportChatLog').innerHTML='<div class="chat-msg fairy"><strong>요정</strong><p>안녕하세요. 궁금한 점이나 문제가 생긴 상황을 그대로 적어주세요. 비밀번호, API 키, 행성 열쇠 원문 같은 비밀정보는 보내지 마세요.</p></div>';
+ $('#supportChatInput').value='';$('#supportAttachmentInput').value='';$('#supportAttachmentName').textContent='';
+}
+async function renderSupportDetail(detail){
+ if(!detail?.ticket)return;clearSupportObjectUrls();activeSupportTicketCode=detail.ticket.code;
+ $('#supportTicketCode').textContent=detail.ticket.code;const pill=$('#supportTicketStatus');pill.textContent=detail.ticket.statusLabel||supportStatusLabel(detail.ticket.status);pill.dataset.status=detail.ticket.status||'';
+ $('#supportCloseTicket').hidden=detail.ticket.status==='closed';
+ const log=$('#supportChatLog');log.innerHTML=(detail.messages||[]).length?(detail.messages||[]).map(supportMessageMarkup).join(''):'<div class="chat-msg fairy"><strong>요정</strong><p>문의 내용을 입력해 주세요.</p></div>';log.scrollTop=log.scrollHeight;
+ await hydrateSupportAttachments(log);
+}
+function renderSupportTicketList(items){
+ const root=$('#supportTicketList');if(!root)return;
+ if(!items.length){root.innerHTML='<p>아직 문의 내역이 없습니다.</p>';return}
+ root.innerHTML=items.map(item=>`<button type="button" class="support-ticket-row${item.code===activeSupportTicketCode?' active':''}" data-support-ticket-code="${escapeHtml(item.code)}"><span><strong>${escapeHtml(item.subject||item.code)}</strong><small>${escapeHtml(item.code)} · ${formatSupportTime(item.lastMessageAt)}</small></span><em data-status="${escapeHtml(item.status||'')}">${escapeHtml(item.statusLabel||supportStatusLabel(item.status))}</em></button>`).join('');
+ $$('[data-support-ticket-code]',root).forEach(btn=>btn.addEventListener('click',()=>openSupportTicket(btn.dataset.supportTicketCode)));
+}
+async function loadSupportTickets(){
+ $('#supportGuestNote').hidden=Boolean(readDemoProfile());
+ try{const items=await apiFetch(STUDYWORLD_SETTINGS.endpoints.supportTickets),list=Array.isArray(items)?items:[];renderSupportTicketList(list);fairySupportBtn?.classList.toggle('has-support-reply',list.some(item=>item.status==='awaiting_user'));const bubble=fairySupportBtn?.querySelector('.fairy-bubble');if(bubble)bubble.textContent=list.some(item=>item.status==='awaiting_user')?'운영팀 답변이 도착했어요':'도움이 필요하신가요?'}catch(error){$('#supportTicketList').innerHTML=`<p>${escapeHtml(error?.message||'문의 내역을 불러오지 못했어요.')}</p>`}
+}
+async function openSupportTicket(code){
+ try{const detail=await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.supportTickets}/${encodeURIComponent(code)}`);await renderSupportDetail(detail);await loadSupportTickets()}catch(error){showToast(error?.message||'문의 내역을 불러오지 못했어요.')}
+}
+async function openSupportModal(){
+ supportModalBackdrop.hidden=false;await loadSupportTickets();if(activeSupportTicketCode)await openSupportTicket(activeSupportTicketCode).catch(()=>{});setTimeout(()=>$('#supportChatInput')?.focus(),40);
+}
+function closeSupportModal(){supportModalBackdrop.hidden=true;clearSupportObjectUrls()}
 window.openSupportModal=openSupportModal;
-const fairySupportBtn=$('#fairySupportBtn'); if(fairySupportBtn) fairySupportBtn.onclick=openSupportModal;
+const fairySupportBtn=$('#fairySupportBtn');if(fairySupportBtn)fairySupportBtn.onclick=openSupportModal;
 $('#supportModalClose').onclick=closeSupportModal;
 supportModalBackdrop.addEventListener('click',e=>{if(e.target===supportModalBackdrop)closeSupportModal()});
+$('#supportNewTicket')?.addEventListener('click',()=>{resetSupportConversation();loadSupportTickets();$('#supportChatInput').focus()});
+$('#supportRefreshTickets')?.addEventListener('click',loadSupportTickets);
+$('#supportAttachmentInput')?.addEventListener('change',e=>{$('#supportAttachmentName').textContent=e.target.files?.[0]?.name||''});
+$$('[data-support-quick]').forEach(btn=>btn.addEventListener('click',()=>{const input=$('#supportChatInput');input.value=btn.dataset.supportQuick||'';input.focus()}));
 
-const supportChatLog=$('#supportChatLog');
-const supportChatForm=$('#supportChatForm');
-const supportChatInput=$('#supportChatInput');
-function appendSupportMessage(role,text){
-  if(!supportChatLog) return;
-  const msg=document.createElement('div');
-  msg.className=`chat-msg ${role}`;
-  msg.innerHTML=role==='user'?`<strong>나</strong><p>${escapeHtml(text)}</p>`:`<strong>요정</strong><p>${text}</p>`;
-  supportChatLog.appendChild(msg);
-  supportChatLog.scrollTop=supportChatLog.scrollHeight;
+async function sendSupportMessage(forceStaff=false){
+ const input=$('#supportChatInput'),sendBtn=$('#supportSendBtn'),staffBtn=$('#supportEscalateBtn'),file=$('#supportAttachmentInput')?.files?.[0]||null;
+ let message=input.value.trim();if(forceStaff&&!message)message='운영팀 상담을 요청합니다.';if(!message){input.focus();return}
+ sendBtn.disabled=true;staffBtn.disabled=true;
+ try{
+  let detail=await apiFetch(STUDYWORLD_SETTINGS.endpoints.supportMessages,{method:'POST',timeoutMs:STUDYWORLD_SETTINGS.aiRequestTimeoutMs,body:JSON.stringify({message,ticketCode:activeSupportTicketCode||undefined,sourcePath:`${location.pathname}#${state.view}`,forceStaff})});
+  activeSupportTicketCode=detail.ticket.code;
+  if(file){const form=new FormData();form.append('file',file);if(detail.userMessageId)form.append('messageId',detail.userMessageId);await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.supportTickets}/${encodeURIComponent(detail.ticket.code)}/attachments`,{method:'POST',body:form});detail=await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.supportTickets}/${encodeURIComponent(detail.ticket.code)}`)}
+  input.value='';$('#supportAttachmentInput').value='';$('#supportAttachmentName').textContent='';await renderSupportDetail(detail);await loadSupportTickets();
+ }catch(error){showToast(error?.message||'문의를 보내지 못했어요. 잠시 후 다시 시도해 주세요.')}
+ finally{sendBtn.disabled=false;staffBtn.disabled=false}
 }
-function supportReplyFor(input){
-  const q=input.toLowerCase();
-  if(/faq|자주|이용법/.test(q)) return '자주 묻는 질문은 곧 정리해서 보여드릴게요. 지금은 <b>광장 탐색</b>, <b>커뮤니티 이용</b>, <b>행성 열쇠와 기록 연결</b> 관련 문의를 가장 많이 받고 있어요.';
-  if(/오류|버그|맵|생성/.test(q)) return 'AI 맵 생성이나 데모 오류는 <b>어떤 단계에서</b>, <b>무슨 현상</b>이 있었는지 적어주시면 더 정확히 도와드릴 수 있어요. 필요하면 담당 팀에 전달할 수 있게 정리해드릴게요.';
-  if(/계정|기록|저장|브라우저|복원/.test(q)) return '학습 기록은 행성 열쇠로 연결된 익명 프로필과 안전한 세션을 통해 이어갈 수 있어요. 전체 행성 열쇠는 발급 순간에만 표시되므로 별도로 안전하게 보관해 주세요.';
-  return '알려주셔서 고마워요. 조금 더 자세히 적어주시면 요정이 바로 이어서 도와드릴게요. 예: “AI 맵 생성에서 멈췄어요”, “학습 기록은 어디에 저장되나요?”';
-}
-if(supportChatForm) supportChatForm.addEventListener('submit',e=>{
-  e.preventDefault();
-  const value=supportChatInput.value.trim();
-  if(!value) return;
-  appendSupportMessage('user',value);
-  supportChatInput.value='';
-  setTimeout(()=>appendSupportMessage('fairy',supportReplyFor(value)),360);
-});
-$$('[data-support-quick]').forEach(btn=>btn.addEventListener('click',()=>{
-  const v=btn.dataset.supportQuick;
-  appendSupportMessage('user',v);
-  setTimeout(()=>appendSupportMessage('fairy',supportReplyFor(v)),260);
-}));
+$('#supportChatForm')?.addEventListener('submit',e=>{e.preventDefault();sendSupportMessage(false)});
+$('#supportEscalateBtn')?.addEventListener('click',()=>sendSupportMessage(true));
+$('#supportCloseTicket')?.addEventListener('click',async()=>{if(!activeSupportTicketCode)return;try{const result=await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.supportTickets}/${encodeURIComponent(activeSupportTicketCode)}/close`,{method:'POST'});$('#supportTicketStatus').textContent=result.ticket?.statusLabel||'종료';$('#supportCloseTicket').hidden=true;await loadSupportTickets();showToast('문의를 종료했어요.')}catch(error){showToast(error?.message||'문의를 종료하지 못했어요.')}});
+setTimeout(loadSupportTickets,2500);setInterval(()=>{if(!document.hidden)loadSupportTickets()},120000);
 
+// Admin customer-support operations. Staff replies are persisted to the same customer thread.
+const adminSupportBackdrop=$('#adminSupportBackdrop'),adminSupportList=$('#adminSupportList'),adminSupportMessages=$('#adminSupportMessages');
+let adminSupportActiveCode='';
+function closeAdminSupport(){if(adminSupportBackdrop)adminSupportBackdrop.hidden=true;adminSupportActiveCode='';clearSupportObjectUrls()}
+function adminSupportRow(item){return `<button type="button" class="admin-support-row${item.code===adminSupportActiveCode?' active':''}" data-admin-support-code="${escapeHtml(item.code)}"><span><strong>${escapeHtml(item.subject||item.code)}</strong><small>${escapeHtml(item.nickname||'비로그인 사용자')} · ${escapeHtml(item.code)} · ${formatSupportTime(item.lastMessageAt)}</small></span><em data-status="${escapeHtml(item.status)}">${escapeHtml(item.statusLabel||supportStatusLabel(item.status))}</em></button>`}
+async function loadAdminSupport(){
+ if(!readDemoProfile()||readDemoProfile().role!=='admin')return;const status=$('#adminSupportFilter')?.value||'all';$('#adminSupportStatus').textContent='불러오는 중…';
+ try{const items=await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.adminSupportTickets}?status=${encodeURIComponent(status)}`);adminSupportList.innerHTML=(items||[]).length?(items||[]).map(adminSupportRow).join(''):'<p class="archive-empty">해당 상태의 문의가 없습니다.</p>';$('#adminSupportStatus').textContent=`${(items||[]).length}건`;$$('[data-admin-support-code]',adminSupportList).forEach(btn=>btn.addEventListener('click',()=>openAdminSupportTicket(btn.dataset.adminSupportCode)))}catch(error){$('#adminSupportStatus').textContent=error?.message||'불러오지 못했습니다.'}
+}
+async function openAdminSupportTicket(code){
+ try{clearSupportObjectUrls();const detail=await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.adminSupportTickets}/${encodeURIComponent(code)}`);adminSupportActiveCode=code;const requester=detail.requester?`${detail.requester.nickname} · ${detail.requester.publicCode}`:'비로그인 사용자';$('#adminSupportTicketMeta').innerHTML=`<strong>${escapeHtml(detail.ticket.subject)}</strong><span>${escapeHtml(detail.ticket.code)} · ${escapeHtml(requester)} · ${escapeHtml(detail.ticket.statusLabel)}</span>`;adminSupportMessages.innerHTML=(detail.messages||[]).map(supportMessageMarkup).join('')+(detail.internalNotes||[]).map(n=>`<div class="admin-support-internal"><strong>내부 메모 · ${formatSupportTime(n.createdAt)}</strong><p>${escapeHtml(n.body)}</p></div>`).join('');await hydrateSupportAttachments(adminSupportMessages);$('#adminSupportNextStatus').value=detail.ticket.status==='closed'?'closed':detail.ticket.status==='resolved'?'resolved':'awaiting_user';await loadAdminSupport()}catch(error){showToast(error?.message||'문의 상세를 불러오지 못했어요.')}
+}
+async function openAdminSupport(){closeProfileDropdown();if(!adminSupportBackdrop)return;adminSupportBackdrop.hidden=false;await loadAdminSupport()}
+$('#adminSupportTickets')?.addEventListener('click',openAdminSupport);$('#adminSupportClose')?.addEventListener('click',closeAdminSupport);adminSupportBackdrop?.addEventListener('click',e=>{if(e.target===adminSupportBackdrop)closeAdminSupport()});$('#adminSupportRefresh')?.addEventListener('click',loadAdminSupport);$('#adminSupportFilter')?.addEventListener('change',loadAdminSupport);
+$('#adminSupportReplyForm')?.addEventListener('submit',async e=>{e.preventDefault();if(!adminSupportActiveCode)return;const input=$('#adminSupportReply'),message=input.value.trim(),internal=$('#adminSupportInternal').checked;if(!message)return;try{await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.adminSupportTickets}/${encodeURIComponent(adminSupportActiveCode)}/messages`,{method:'POST',body:JSON.stringify({message,internal})});if(!internal){const next=$('#adminSupportNextStatus').value;if(next!=='awaiting_user')await apiFetch(`${STUDYWORLD_SETTINGS.endpoints.adminSupportTickets}/${encodeURIComponent(adminSupportActiveCode)}`,{method:'PATCH',body:JSON.stringify({status:next})})}input.value='';$('#adminSupportInternal').checked=false;await openAdminSupportTicket(adminSupportActiveCode);showToast(internal?'내부 메모를 저장했어요.':'운영팀 답변을 저장했어요.')}catch(error){showToast(error?.message||'답변을 저장하지 못했어요.')}});
 
 const boardMeta={
  cert:{title:'공부 인증게시판',desc:'오늘 수련 완료 캡처와 기록을 공유해요.',eyebrow:'STUDY LOG ARCHIVE'},
  qa:{title:'Q&A 게시판',desc:'막히는 수학·자격증 문제를 서로 묻고 답해요.',eyebrow:'QUESTION & ANSWER'},
  share:{title:'맵 · 자료 공유',desc:'AI 프롬프트, 학습 맵과 노하우를 나눠요.',eyebrow:'MAP & RESOURCE ARCHIVE'}
 };
-let activeCommunityBoard='cert';let activePostId=null;
+let activeCommunityBoard='cert';let activePostId=null;let activePostDetail=null;
 function relativeTime(iso){const ms=Date.now()-new Date(iso).getTime(),m=Math.max(1,Math.round(ms/60000));if(m<60)return `${m}분 전`;const h=Math.round(m/60);if(h<24)return `${h}시간 전`;return new Date(iso).toLocaleDateString('ko-KR')}
 function renderArchiveCard(post){
- if(post.board==='cert')return `<button class="cert-card" type="button" data-post-id="${escapeHtml(post.id)}"><span class="cert-thumb">${post.image?`<img src="${escapeHtml(post.image)}" alt="">`:`<span class="cert-shot"><i></i><i></i><i></i><b><em></em><em></em><em></em><em></em><em></em></b></span>`}</span><span class="cert-body"><strong class="cert-title">${escapeHtml(post.title)}</strong><span class="cert-meta"><span class="cert-user"><i class="cert-avatar">${escapeHtml((post.author||'U')[0])}</i>${escapeHtml(post.author||'사용자')}</span><span>${relativeTime(post.createdAt)}</span></span></span></button>`;
+ if(post.board==='cert')return `<button class="cert-card" type="button" data-post-id="${escapeHtml(post.id)}"><span class="cert-thumb">${post.image?`<img src="${escapeHtml(post.image)}" alt="">`:'<span class="cert-shot">이미지 없음</span>'}</span><span class="cert-body"><strong class="cert-title">${escapeHtml(post.title)}</strong><span class="cert-meta"><span class="cert-user"><i class="cert-avatar">${escapeHtml((post.author||'U')[0])}</i>${escapeHtml(post.author||'사용자')}</span><span>${relativeTime(post.createdAt)}</span></span></span></button>`;
  if(post.board==='qa')return `<button class="qa-row" type="button" data-post-id="${escapeHtml(post.id)}"><span class="qa-status ${post.status==='waiting'?'wait':''}">${post.status==='waiting'?'답변대기':'답변완료'}</span><strong class="qa-title">${escapeHtml(post.title)}</strong><span class="qa-meta"><span>💬 ${post.commentCount||0}</span><span>${relativeTime(post.createdAt)}</span></span></button>`;
- return `<button class="share-card" type="button" data-post-id="${escapeHtml(post.id)}"><span class="share-thumb">${post.image?`<img src="${escapeHtml(post.image)}" alt="">`:`<span class="share-world"></span>`}</span><span class="share-body"><strong class="share-title">${escapeHtml(post.title)}</strong><span class="share-tags">${(post.tags||[]).map(t=>`<span class="share-tag">#${escapeHtml(t.replace(/^#/,''))}</span>`).join('')}</span><span class="share-foot"><span class="share-download">📥 다운로드 ${post.downloads||0}</span><span>${relativeTime(post.createdAt)}</span></span></span></button>`;
+ return `<button class="share-card" type="button" data-post-id="${escapeHtml(post.id)}"><span class="share-thumb">${post.image?`<img src="${escapeHtml(post.image)}" alt="">`:`<span class="share-world"></span>`}</span><span class="share-body"><strong class="share-title">${escapeHtml(post.title)}</strong><span class="share-tags">${(post.tags||[]).map(t=>`<span class="share-tag">#${escapeHtml(t.replace(/^#/,''))}</span>`).join('')}</span><span class="share-foot"><span class="share-download">♥ ${post.likes||0} · 조회 ${post.views||0}</span><span>${relativeTime(post.createdAt)}</span></span></span></button>`;
 }
 function bindDynamicPostClicks(root=document){$$('[data-post-id]',root).forEach(btn=>{btn.onclick=()=>openCommunityPost(btn.dataset.postId)})}
 function openCommunityBoard(board){
@@ -738,10 +907,10 @@ async function renderCommunityBoard(){
  try{const posts=await listCommunityPosts(activeCommunityBoard,sort);if(!posts.length){root.innerHTML='<div class="archive-empty">아직 게시물이 없어요. 첫 글을 작성해보세요.</div>';return}root.className='board-archive-container '+(activeCommunityBoard==='cert'?'archive-cert-grid':activeCommunityBoard==='qa'?'archive-qa-list':'archive-share-grid');root.innerHTML=posts.map(renderArchiveCard).join('');bindDynamicPostClicks(root)}catch(error){root.innerHTML=`<div class="archive-empty">${escapeHtml(error?.message||'게시물을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')}</div>`}
 }
 async function openCommunityPost(id){
- try{const post=await fetchCommunityPost(id);if(!post)return;activePostId=id;activeCommunityBoard=post.board;$('#postBoardChip').textContent=boardMeta[post.board].title;$('#postDetailTitle').textContent=post.title;$('#postDetailMeta').textContent=`${post.author||'사용자'} · ${relativeTime(post.createdAt)} · 조회 ${post.views||0}`;$('#postDetailBody').textContent=post.body||'';const media=$('#postDetailMedia');if(post.image){media.hidden=false;media.innerHTML=`<img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.title)}" loading="lazy" decoding="async">`}else{media.hidden=post.board!=='cert'&&post.board!=='share';media.innerHTML=media.hidden?'':'<span class="share-world" aria-hidden="true"></span>'}$('#postDetailTags').innerHTML=(post.tags||[]).map(t=>`<span>#${escapeHtml(t.replace(/^#/,''))}</span>`).join('');switchView('community-post');await renderComments()}catch(error){showToast(error?.message||'게시물을 불러오지 못했어요.')}
+ try{const post=await fetchCommunityPost(id);if(!post)return;activePostId=id;activePostDetail=post;activeCommunityBoard=post.board;$('#postBoardChip').textContent=boardMeta[post.board].title;$('#postDetailTitle').textContent=post.title;$('#postDetailMeta').textContent=`${post.author||'사용자'} · ${relativeTime(post.createdAt)} · 조회 ${post.views||0} · 댓글 ${post.commentCount||0}`;$('#postDetailBody').textContent=post.body||'';const media=$('#postDetailMedia');if(post.image){media.hidden=false;media.innerHTML=`<img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.title)}" loading="lazy" decoding="async">`}else{media.hidden=true;media.innerHTML=''}$('#postDetailTags').innerHTML=(post.tags||[]).map(t=>`<span>#${escapeHtml(t.replace(/^#/,''))}</span>`).join('');const like=$('#postLikeBtn');if(like){like.setAttribute('aria-pressed',String(Boolean(post.liked)));like.firstChild.textContent=post.liked?'♥ 좋아요 ':'♡ 좋아요 ';$('#postLikeCount').textContent=String(post.likes||0)}switchView('community-post');await renderComments()}catch(error){showToast(error?.message||'게시물을 불러오지 못했어요.')}
 }
-async function renderComments(){try{const comments=await listCommunityComments(activePostId);$('#commentCount').textContent=`${comments.length}개`;$('#commentList').innerHTML=comments.length?comments.map(c=>`<div class="comment-item"><strong>${escapeHtml(c.author||'사용자')} · ${relativeTime(c.createdAt)}</strong><p>${escapeHtml(c.body)}</p></div>`).join(''):'<div class="archive-empty" style="padding:18px">아직 댓글이 없어요.</div>'}catch(error){$('#commentList').innerHTML=`<div class="archive-empty" style="padding:18px">${escapeHtml(error?.message||'댓글을 불러오지 못했어요.')}</div>`}}
-function updateComposerOptionalFields(){const b=$('#composerBoard').value;const root=$('#composerOptionalFields');if(b==='cert')root.innerHTML='<label>인증 이미지 (선택)<input id="composerImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>';else if(b==='share')root.innerHTML='<label>태그 (쉼표로 구분)<input id="composerTags" placeholder="중1수학, AI맵, 복습"></label><label>썸네일 이미지 (선택)<input id="composerImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>';else root.innerHTML='<label>질문 상태<select id="composerStatus"><option value="waiting">답변대기</option><option value="answered">답변완료</option></select></label>'}
+async function renderComments(){try{const comments=await listCommunityComments(activePostId);$('#commentCount').textContent=`${comments.length}개`;$('#commentList').innerHTML=comments.length?comments.map(c=>`<div class="comment-item ${c.isAccepted?'is-accepted':''}"><strong>${escapeHtml(c.author||'사용자')} · ${relativeTime(c.createdAt)}${c.isAccepted?'<span class="accepted-badge">채택 답변</span>':''}</strong><p>${escapeHtml(c.body)}</p>${activePostDetail?.canAcceptAnswers&&!c.isAccepted?`<button type="button" class="ghost accept-answer-btn" data-accept-comment="${escapeHtml(c.id)}">답변 채택</button>`:''}</div>`).join(''):'<div class="archive-empty" style="padding:18px">아직 댓글이 없어요.</div>';$$('[data-accept-comment]',$('#commentList')).forEach(btn=>btn.addEventListener('click',async()=>{try{await acceptCommunityAnswer(activePostId,btn.dataset.acceptComment);activePostDetail.status='answered';await renderComments();showToast('답변을 채택했어요.')}catch(error){showToast(error?.message||'답변을 채택하지 못했어요.')}}))}catch(error){$('#commentList').innerHTML=`<div class="archive-empty" style="padding:18px">${escapeHtml(error?.message||'댓글을 불러오지 못했어요.')}</div>`}}
+function updateComposerOptionalFields(){const b=$('#composerBoard').value;const root=$('#composerOptionalFields');if(b==='cert')root.innerHTML='<label>인증 이미지 (필수)<input id="composerImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" required></label><small>실제 공부 인증 이미지를 첨부해야 등록할 수 있어요.</small>';else if(b==='share')root.innerHTML='<label>태그 (쉼표로 구분)<input id="composerTags" placeholder="중1수학, AI맵, 복습"></label><label>썸네일 이미지 (선택)<input id="composerImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>';else root.innerHTML='<small>질문은 답변대기로 등록되며, 작성자가 실제 댓글을 답변으로 채택하면 답변완료로 바뀝니다.</small>'}
 function openCommunityComposer(){const p=readDemoProfile();if(!p){openDemoAccount('community');showToast('글을 작성하려면 먼저 별명을 정하고 행성 열쇠를 발급해 주세요.');return}$('#communityComposerBackdrop').hidden=false;$('#composerBoard').value=activeCommunityBoard;updateComposerOptionalFields();setTimeout(()=>$('#composerTitle').focus(),50)}
 function closeCommunityComposer(){$('#communityComposerBackdrop').hidden=true}
 $$('[data-board-open]').forEach(btn=>btn.addEventListener('click',()=>openCommunityBoard(btn.dataset.boardOpen)));
@@ -749,8 +918,9 @@ bindDynamicPostClicks();
 $('#boardSortSelect').addEventListener('change',renderCommunityBoard);
 $('#openComposerBtn').onclick=openCommunityComposer;$('#communityComposerClose').onclick=closeCommunityComposer;$('#communityComposerBackdrop').addEventListener('click',e=>{if(e.target.id==='communityComposerBackdrop')closeCommunityComposer()});
 $('#composerBoard').addEventListener('change',updateComposerOptionalFields);
-$('#communityComposerForm').addEventListener('submit',async e=>{e.preventDefault();const p=readDemoProfile();if(!p){openDemoAccount('community');return}const board=$('#composerBoard').value;const tags=($('#composerTags')?.value||'').split(',').map(x=>x.trim()).filter(Boolean);let image='';try{image=await uploadCommunityImage($('#composerImageFile')?.files?.[0]);const payload={board,title:$('#composerTitle').value.trim(),body:$('#composerBody').value.trim(),image,tags};await createCommunityPost(payload);closeCommunityComposer();e.target.reset();activeCommunityBoard=board;openCommunityBoard(board);showToast('게시물이 등록됐어요.')}catch(err){showToast(err?.code==='IMAGE_TOO_LARGE'?'이미지 파일은 5MB 이하로 올려주세요.':(err?.message||'게시물을 등록하지 못했어요.'))}});
+$('#communityComposerForm').addEventListener('submit',async e=>{e.preventDefault();const p=readDemoProfile();if(!p){openDemoAccount('community');return}const board=$('#composerBoard').value;const file=$('#composerImageFile')?.files?.[0]||null;if(board==='cert'&&!file){showToast('공부 인증 게시판에는 인증 이미지가 필요해요.');return}const tags=($('#composerTags')?.value||'').split(',').map(x=>x.trim()).filter(Boolean);let image='';try{image=await uploadCommunityImage(file);const payload={board,title:$('#composerTitle').value.trim(),body:$('#composerBody').value.trim(),image,tags};await createCommunityPost(payload);closeCommunityComposer();e.target.reset();activeCommunityBoard=board;openCommunityBoard(board);showToast('게시물이 등록됐어요.')}catch(err){showToast(err?.code==='IMAGE_TOO_LARGE'?'이미지 파일은 5MB 이하로 올려주세요.':err?.code==='CERT_IMAGE_REQUIRED'?'공부 인증 이미지를 첨부해 주세요.':(err?.message||'게시물을 등록하지 못했어요.'))}});
 $('#postBackBtn').onclick=()=>openCommunityBoard(activeCommunityBoard);
+$('#postLikeBtn')?.addEventListener('click',async()=>{if(!activePostId)return;if(!readDemoProfile()){openDemoAccount('community');showToast('좋아요를 누르려면 행성 열쇠로 입장해 주세요.');return}const next=!Boolean(activePostDetail?.liked);try{const result=await setCommunityLike(activePostId,next);activePostDetail={...(activePostDetail||{}),liked:result.liked,likes:result.likes};const btn=$('#postLikeBtn');btn.setAttribute('aria-pressed',String(result.liked));btn.firstChild.textContent=result.liked?'♥ 좋아요 ':'♡ 좋아요 ';$('#postLikeCount').textContent=String(result.likes)}catch(error){showToast(error?.message||'좋아요를 반영하지 못했어요.')}});
 $('#commentForm').addEventListener('submit',async e=>{e.preventDefault();const p=readDemoProfile();if(!p){openDemoAccount('community');return}const body=$('#commentInput').value.trim();if(!body)return;try{await createCommunityComment(activePostId,{body});$('#commentInput').value='';await renderComments();showToast('댓글이 등록됐어요.')}catch(error){showToast(error?.message||'댓글을 등록하지 못했어요.')}});
 const footerSupport=$('#footerSupport'); if(footerSupport) footerSupport.onclick=openSupportModal;
 updateDemoLaunchUI();
@@ -774,6 +944,7 @@ function scheduleFairyAppearance(){
 const _switchView=switchView;
 // eslint-disable-next-line no-func-assign
 switchView=function(v){
+  if(state.view==='runtime'&&v!=='runtime'&&activeRoomVisit)void exitRoomVisit('navigation',{silent:true,keepalive:true});
   if(v!=='home'&&typeof exitPlanetFocus==='function'&&planetFocusActive)exitPlanetFocus();
   _switchView(v);
   if(readDemoProfile()||v!=='rooms')syncAppRoute(v);
@@ -791,7 +962,7 @@ const gnbNav=$('.nav');
 const gnbIndicator=$('#gnbIndicator');
 const gnbButtons=$$('.nav button[data-view]');
 let gnbSparkTimer=0;
-function getActiveGnbButton(){return $('.nav button[data-view].active')||gnbButtons[0]}
+function getActiveGnbButton(){return $('.nav button[data-view].active')||null}
 function moveGnbIndicator(target,spark=true){
   if(!gnbNav||!gnbIndicator||!target) return;
   const navRect=gnbNav.getBoundingClientRect();
@@ -807,7 +978,7 @@ function moveGnbIndicator(target,spark=true){
     gnbSparkTimer=setTimeout(()=>gnbIndicator.classList.remove('is-shooting'),620);
   }
 }
-function syncGnbIndicator(spark=true){moveGnbIndicator(getActiveGnbButton(),spark)}
+function syncGnbIndicator(spark=true){const target=getActiveGnbButton();if(!gnbIndicator)return;if(!target){gnbIndicator.style.opacity='0';return}gnbIndicator.style.opacity='';moveGnbIndicator(target,spark)}
 if(gnbNav&&gnbIndicator){
   gnbButtons.forEach(btn=>{
     btn.addEventListener('pointerenter',()=>moveGnbIndicator(btn,true));
@@ -852,7 +1023,7 @@ if(launchCard){
   });
 }
 let toastId;function showToast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastId);toastId=setTimeout(()=>t.classList.remove('show'),2300)}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityComposerBackdrop').hidden)closeCommunityComposer();else if(!planetKeyIssuedBackdrop.hidden)closePlanetKeyIssued();else if(planetKeyLockBackdrop&&!planetKeyLockBackdrop.hidden)closePlanetKeyLock();else if(!demoAccountBackdrop.hidden)closeDemoAccount();else if(!supportModalBackdrop.hidden)closeSupportModal();else if(!planetDialogBackdrop.hidden)closePlanetDialog();else if(planetFocusActive)exitPlanetFocus();else closeBuilder()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityComposerBackdrop').hidden)closeCommunityComposer();else if(!planetKeyIssuedBackdrop.hidden)closePlanetKeyIssued();else if(planetKeyLockBackdrop&&!planetKeyLockBackdrop.hidden)closePlanetKeyLock();else if(!demoAccountBackdrop.hidden)closeDemoAccount();else if(!supportModalBackdrop.hidden)closeSupportModal();else if(planetFocusActive)exitPlanetFocus();else closeBuilder()}});
 
 
 // v30 — restore Planet Key access and turn the home orbit into a draggable 360° showroom.
@@ -864,9 +1035,14 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   const keyModal=$v('#keyModal');
   const keyInput=$v('#keyModalInput');
   const keyStatus=$v('#keyModalStatus');
-  function openKeyModal(message=''){
+  function openKeyModal(message='',entryMode='general'){
     if(!keyModal)return;
+    pendingKeyEntryMode=entryMode==='student'?'student':'general';
     keyStatus.className='nickname-status';keyStatus.textContent=message||'';keyInput.value='';keyInput.type='password';
+    const student=pendingKeyEntryMode==='student';
+    const title=$v('#keyModalTitle');if(title)title.textContent=student?'🎓 학생 행성 입장':'🪐 행성 입장';
+    const copy=$v('#keyModalCopy');if(copy)copy.textContent=student?'보관 중인 행성 열쇠를 입력하면 해당 계정에 학생 데모 혜택을 연결하고 기존 학습 기록을 그대로 불러옵니다.':'보관해두신 나만의 행성 열쇠 코드를 입력하면 연결된 학습 공간과 기록을 불러옵니다.';
+    const benefit=$v('#keyModalBenefit');if(benefit)benefit.hidden=!student;
     const reveal=$v('#keyModalReveal');if(reveal){reveal.textContent='보기';reveal.setAttribute('aria-pressed','false')}
     keyModal.hidden=false;setTimeout(()=>keyInput.focus(),60);
   }
@@ -874,8 +1050,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   function closeKeyModal(){if(keyModal)keyModal.hidden=true}
   async function restorePlanetKeyV30(value){
     const key=normalizePlanetKey(value);if(!isValidPlanetKeyFormat(key))throw new Error('INVALID_FORMAT');
-    const data=await apiFetch(STUDYWORLD_SETTINGS.endpoints.planetKeyRestore,{method:'POST',body:JSON.stringify({planetKey:key})});const profile=data.profile||{};
-    return{id:profile.id,nickname:profile.nickname||'모험가',role:profile.role||'user',accountOrigin:profile.accountOrigin||'member',publicCode:profile.publicCode||'',planetImageUrl:profile.planetImageUrl||null,maskedPlanetKey:maskPlanetKey(),createdAt:profile.createdAt||new Date().toISOString(),serverBacked:true};
+    const data=await apiFetch(STUDYWORLD_SETTINGS.endpoints.planetKeyRestore,{method:'POST',body:JSON.stringify({planetKey:key,entryMode:pendingKeyEntryMode==='student'?'student':'general'})});const profile=data.profile||{};
+    return{id:profile.id,nickname:profile.nickname||'모험가',role:profile.role||'user',accountOrigin:profile.accountOrigin||'member',accountSegment:profile.accountSegment||'general',studentStatus:profile.studentStatus||'none',studentStartedAt:profile.studentStartedAt||null,publicCode:profile.publicCode||'',planetImageUrl:profile.planetImageUrl||null,maskedPlanetKey:maskPlanetKey(),createdAt:profile.createdAt||new Date().toISOString(),sessionStartedAt:profile.sessionStartedAt||new Date().toISOString(),serverBacked:true};
   }
 
   $v('#keyModalClose')?.addEventListener('click',closeKeyModal);
@@ -887,23 +1063,25 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
     try{
       const profile=await restorePlanetKeyV30(keyInput.value);
       localStorage.setItem(DEMO_PROFILE_KEY,JSON.stringify(profile));
-      updateDemoLaunchUI();saveDemoSession({lastView:'rooms'});
+      localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({lastView:'rooms',enteredAt:profile.sessionStartedAt,lastActiveAt:new Date().toISOString()}));
+      updateDemoLaunchUI();
       keyStatus.className='nickname-status available';keyStatus.textContent='열쇠 확인 완료. 내 행성을 열고 있어요.';
-      setTimeout(()=>{closeKeyModal();document.body.classList.add('app-mode');switchView('rooms');showToast(`${profile.nickname}님의 행성을 불러왔어요.`)},260);
+      await refreshMyStudySpaces().catch(()=>{});
+      setTimeout(()=>{closeKeyModal();document.body.classList.add('app-mode');enterDemoApp('rooms');},180);
     }catch(err){
       keyStatus.className='nickname-status unavailable';
       keyStatus.textContent='존재하지 않거나 형식이 올바르지 않은 열쇠 코드입니다.';
     }
   });
   const launchKey=$v('#guestLaunch');
-  if(launchKey){launchKey.onclick=()=>openDemoAccount('rooms');$v('#guestLaunchLabel').textContent='행성 열쇠 발급받기'}
+  if(launchKey){launchKey.onclick=()=>openDemoAccount('rooms','general');$v('#guestLaunchLabel').textContent='행성 열쇠 발급받기'}
   const launchRestore=$v('#planetKeyRestoreFromLaunch');
-  if(launchRestore) launchRestore.onclick=openKeyModal;
+  if(launchRestore) launchRestore.onclick=()=>openKeyModal('', 'general');
   const gnbKey=$v('#gnbKeyLogin');
-  if(gnbKey){gnbKey.textContent='🪐 행성 입장';gnbKey.onclick=openKeyModal}
+  if(gnbKey){gnbKey.textContent='🎓 학생 입장';gnbKey.onclick=()=>openDemoAccount('rooms','student')}
   const gnbIssue=$v('#gnbKeyIssue');
-  if(gnbIssue)gnbIssue.onclick=()=>openDemoAccount('rooms');
-  $v('#planetKeyIssueOpen')?.addEventListener('click',()=>openDemoAccount('rooms'));
+  if(gnbIssue)gnbIssue.onclick=()=>openDemoAccount('rooms','general');
+  $v('#planetKeyIssueOpen')?.addEventListener('click',()=>openDemoAccount('rooms','general'));
   const guestBrowse=$v('#guestBrowse');
   if(guestBrowse) guestBrowse.addEventListener('click',()=>{
     switchView('commons');
@@ -919,15 +1097,15 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
       const profile=readDemoProfile();
       const label=$v('#guestLaunchLabel');
       if(label)label.textContent=profile?'나만의 행성으로 이동하기':'행성 열쇠 발급받기';
-      if(launchKey)launchKey.onclick=profile?(()=>switchView('rooms')):(()=>openDemoAccount('rooms'));
+      if(launchKey)launchKey.onclick=profile?(()=>enterDemoApp('rooms')):(()=>openDemoAccount('rooms','general'));
       if(launchRestore) launchRestore.hidden=!!profile;
-      const g=$v('#gnbKeyLogin');if(g&&!profile){g.textContent='🪐 행성 입장';g.onclick=openKeyModal}
-      const issue=$v('#gnbKeyIssue');if(issue){issue.hidden=!!profile;if(!profile)issue.onclick=()=>openDemoAccount('rooms')}
+      const g=$v('#gnbKeyLogin');if(g&&!profile){g.textContent='🎓 학생 입장';g.onclick=()=>openDemoAccount('rooms','student')}
+      const issue=$v('#gnbKeyIssue');if(issue){issue.hidden=!!profile;if(!profile)issue.onclick=()=>openDemoAccount('rooms','general')}
     };
     updateDemoLaunchUI();
   }
   const p=readDemoProfile();
-  if(p&&launchKey) launchKey.onclick=()=>switchView('rooms');
+  if(p&&launchKey) launchKey.onclick=()=>enterDemoApp('rooms');
 
   // ---------- v33: original STUDYWORLD planet map restored ----------
   // The eight category planets are fixed around the center world again.
@@ -945,10 +1123,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
 
 // v42 — server-backed AI Intent + Context + Learning Engine
 (function(){
-  const DYN_STORAGE='studyworld.dynamic.space.v2';
-  const ALLOWED_STUDY_TYPES=['coding','recall','brainstorm','reading'];
-  const ALLOWED_LAYOUTS=['split_view','canvas','flashcard','focus_reader'];
-  const ALLOWED_PERSONAS=['code_coach','recall_coach','reading_guide','brainstorm_partner'];
+  const DYN_STORAGE='studyworld.dynamic.space.v3';
+  const ALLOWED_STUDY_TYPES=['coding','recall','brainstorm','reading','conversation'];
+  const ALLOWED_LAYOUTS=['split_view','canvas','flashcard','focus_reader','conversation'];
+  const ALLOWED_PERSONAS=['code_coach','recall_coach','reading_guide','brainstorm_partner','conversation_coach'];
   const DYNAMIC_UI_PROTOCOL={
     study_type:ALLOWED_STUDY_TYPES,
     layout_mode:ALLOWED_LAYOUTS,
@@ -962,15 +1140,15 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   let dynamicContext={name:'',type:'',text:'',source:'',ephemeral:false,updatedAt:''};
   let transientCode='';
   let dynamicTimer={seconds:25*60,running:false,tick:null,startedAt:0};
-  let engineSource='LOCAL SAFE FALLBACK';
+  let engineSource='안전 기본 구성';
   let canvasDrag=null;
   let lastAiMeta=null;
   let lastRoomModificationUsage=null;
   let roomModificationArmed=false;
-  const DEFAULT_DYNAMIC_PLACEHOLDER='@AI 이 내용 기반으로 퀴즈 모드로 바꿔줘';
+  const DEFAULT_DYNAMIC_PLACEHOLDER='예: 회화 연습 중심으로 바꾸고, 피드백은 대화가 끝난 뒤 해줘';
   const SAFE_CONTEXT_EXTENSIONS=new Set(['js','jsx','ts','tsx','py','json','csv','md','txt','pdf']);
 
-  function defaultWorkspace(){return {code:`function solve(input) {\n  // 먼저 직접 시도해보세요.\n  return input;\n}\n`,reviewRequest:'',terminal:['$ ready · static check only'],flashIndex:0,flashRevealed:false,flashHintVisible:false,recallDraft:'',aiFlashcards:[],canvasNodes:[{id:'n1',x:110,y:150,text:'핵심 주제'},{id:'n2',x:390,y:90,text:'근거 / 예시'},{id:'n3',x:420,y:300,text:'반론 / 질문'}],aiNodeSuggestion:null,readerNotes:'',focusParagraph:0,aiSummary:null,aiParagraphExplain:null,aiCodeReview:null}}
+  function defaultWorkspace(){return {code:`function solve(input) {\n  // 먼저 직접 시도해보세요.\n  return input;\n}\n`,reviewRequest:'',terminal:['$ ready · static check only'],flashIndex:0,flashRevealed:false,flashHintVisible:false,recallDraft:'',aiFlashcards:[],canvasNodes:[{id:'n1',x:110,y:150,text:'핵심 주제'},{id:'n2',x:390,y:90,text:'근거 / 예시'},{id:'n3',x:420,y:300,text:'반론 / 질문'}],aiNodeSuggestion:null,readerNotes:'',focusParagraph:0,aiSummary:null,aiParagraphExplain:null,aiCodeReview:null,conversationHistory:[],conversationFeedback:null}}
   function sanitizeStoredEntry(entry){
     if(!entry||typeof entry!=='object')return entry;
     const context={...(entry.context||{})};delete context.text;
@@ -1008,7 +1186,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   function schemaForRoom(key){
     if(key==='coding')return {study_type:'coding',layout_mode:'split_view',active_tools:{code_editor:true,terminal:true,timer_type:null,bgm_recommendation:'lofi_cyber'},ai_persona:{id:'code_coach',role:'소크라테스식 코드 리뷰어',system_prompt:'정답을 먼저 주지 않고 시도·복잡도·테스트 관점에서 다음 한 단계를 묻습니다.'}};
     if(key==='paper')return {study_type:'reading',layout_mode:'focus_reader',active_tools:{code_editor:false,terminal:false,timer_type:null,bgm_recommendation:null},ai_persona:{id:'reading_guide',role:'근거 중심 리딩 튜터',system_prompt:'자료의 핵심 주장과 근거를 구분하고 필요한 범위만 짧게 설명합니다.'}};
-    if(key==='exam'||key==='memory'||key==='language')return {study_type:'recall',layout_mode:'flashcard',active_tools:{code_editor:false,terminal:false,timer_type:'feynman_pomodoro',bgm_recommendation:null},ai_persona:{id:'recall_coach',role:'회상 훈련 코치',system_prompt:'정답을 먼저 보여주지 않고 회상 시도 뒤 단계적으로 피드백합니다.'}};
+    if(key==='language')return {study_type:'conversation',layout_mode:'conversation',active_tools:{code_editor:false,terminal:false,timer_type:null,bgm_recommendation:null},ai_persona:{id:'conversation_coach',role:'실전 회화 코치',system_prompt:'사용자가 요청한 언어와 상황으로 실제 대화를 이어가고 발화 뒤에만 짧게 교정합니다.'}};
+    if(key==='exam'||key==='memory')return {study_type:'recall',layout_mode:'flashcard',active_tools:{code_editor:false,terminal:false,timer_type:'feynman_pomodoro',bgm_recommendation:null},ai_persona:{id:'recall_coach',role:'회상 훈련 코치',system_prompt:'정답을 먼저 보여주지 않고 회상 시도 뒤 단계적으로 피드백합니다.'}};
     return {study_type:'brainstorm',layout_mode:'canvas',active_tools:{code_editor:false,terminal:false,timer_type:null,bgm_recommendation:'quiet_focus'},ai_persona:{id:'brainstorm_partner',role:'사고 확장 코치',system_prompt:'기존 관점에서 빠진 질문·반론·검증 기준을 제안합니다.'}};
   }
   function normalizeSchema(raw,fallback){
@@ -1019,23 +1198,24 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
     const ap=raw.ai_persona&&typeof raw.ai_persona==='object'?raw.ai_persona:{};
     return {study_type:study,layout_mode:layout,active_tools:{code_editor:Boolean(at.code_editor??fallback.active_tools.code_editor),terminal:Boolean(at.terminal??fallback.active_tools.terminal),timer_type:(typeof at.timer_type==='string'||at.timer_type===null)?at.timer_type:fallback.active_tools.timer_type,bgm_recommendation:(typeof at.bgm_recommendation==='string'||at.bgm_recommendation===null)?at.bgm_recommendation:fallback.active_tools.bgm_recommendation},ai_persona:{id:ALLOWED_PERSONAS.includes(ap.id)?ap.id:(fallback.ai_persona.id||'brainstorm_partner'),role:String(ap.role||fallback.ai_persona.role).slice(0,90),system_prompt:String(ap.system_prompt||fallback.ai_persona.system_prompt).slice(0,500)}};
   }
-  function localIntentParser(prompt,context){
-    const q=(prompt||'').toLowerCase();const ext=(context?.name||'').split('.').pop().toLowerCase();
+  function localIntentParser(prompt,context,useMaterialForDesign=false){
+    const q=(prompt||'').toLowerCase();const ext=useMaterialForDesign?(context?.name||'').split('.').pop().toLowerCase():'';
     let mode='brainstorm';
     if(/^\/mode\s+(split|coding|code|split_view)/i.test(prompt)||/(코드|코딩|디버그|debug|review|리뷰|javascript|python|\.js|\.py)/i.test(q)||['js','jsx','ts','tsx','py','json','csv'].includes(ext))mode='coding';
+    else if(/^\/mode\s+(conversation|speak|roleplay)/i.test(prompt)||/(비즈니스\s*영어|영어\s*회화|외국어\s*말하기|회화|말하기|롤플레이|role.?play|conversation|interview|면접|미팅|회의|협상|전화\s*영어)/i.test(q))mode='conversation';
     else if(/^\/mode\s+(flash|flashcard|recall|quiz)/i.test(prompt)||/(퀴즈|암기|회상|플래시|문제.*내|시험.*모드|빈칸)/i.test(q))mode='recall';
     else if(/^\/mode\s+(reader|reading|focus_reader)/i.test(prompt)||/(논문|독해|읽기|원문|pdf|문서.*요약|3줄 요약)/i.test(q)||ext==='pdf')mode='reading';
     else if(/^\/mode\s+(canvas|brainstorm)/i.test(prompt)||/(브레인스토밍|아이디어|기획|마인드맵|노드|캔버스)/i.test(q))mode='brainstorm';
-    if(mode==='coding')return schemaForRoom('coding');if(mode==='recall')return schemaForRoom('memory');if(mode==='reading')return schemaForRoom('paper');return schemaForRoom('teach');
+    if(mode==='coding')return schemaForRoom('coding');if(mode==='conversation')return schemaForRoom('language');if(mode==='recall')return schemaForRoom('memory');if(mode==='reading')return schemaForRoom('paper');return schemaForRoom('teach');
   }
   function contextExcerpt(limit=12000){return String(dynamicContext.text||'').slice(0,limit)}
-  async function requestIntentSchema(prompt,{preview=false,roomModification=false}={}){
-    const fallback=localIntentParser(prompt,dynamicContext);
+  async function requestIntentSchema(prompt,{preview=false,roomModification=false,useMaterialForDesign=false}={}){
+    const fallback=localIntentParser(prompt,dynamicContext,useMaterialForDesign);
     try{
-      const result=await apiFetch(STUDYWORLD_SETTINGS.endpoints.studyIntent,{method:'POST',timeoutMs:STUDYWORLD_SETTINGS.aiRequestTimeoutMs,body:JSON.stringify({protocol_version:'1.1',spaceId:preview?null:(activeStudySpaceId||null),prompt,roomModification:Boolean(roomModification&&!preview&&activeStudySpaceId),context:{file_name:dynamicContext.name,file_type:dynamicContext.type,has_text:Boolean(dynamicContext.text),text:contextExcerpt()},current_schema:dynamicSchema})});
-      lastAiMeta=result?.meta||null;lastRoomModificationUsage=result?.usage||null;engineSource=result?.meta?.fallback?'SAFE FALLBACK · AI UNAVAILABLE':`${String(result?.meta?.provider||'AI').toUpperCase()} · ${result?.meta?.model||'MODEL'}`;
+      const result=await apiFetch(STUDYWORLD_SETTINGS.endpoints.studyIntent,{method:'POST',timeoutMs:STUDYWORLD_SETTINGS.aiRequestTimeoutMs,body:JSON.stringify({protocol_version:'1.1',spaceId:preview?null:(activeStudySpaceId||null),prompt,roomModification:Boolean(roomModification&&!preview&&activeStudySpaceId),context:{file_name:dynamicContext.name,file_type:dynamicContext.type,has_text:Boolean(dynamicContext.text),text:contextExcerpt()},design_recommendation_requested:Boolean(useMaterialForDesign),current_schema:dynamicSchema})});
+      lastAiMeta=result?.meta||null;lastRoomModificationUsage=result?.usage||null;engineSource=result?.meta?.fallback?'안전 기본 구성':`${String(result?.meta?.provider||'AI').toUpperCase()} · ${result?.meta?.model||'MODEL'}`;
       return normalizeSchema(result.schema||result,fallback);
-    }catch(_error){lastAiMeta={fallback:true,errorCode:'NETWORK_OR_API'};lastRoomModificationUsage=null;engineSource='LOCAL SAFE FALLBACK';return normalizeSchema(fallback,fallback)}
+    }catch(_error){lastAiMeta={fallback:true,errorCode:'NETWORK_OR_API'};lastRoomModificationUsage=null;engineSource='안전 기본 구성';return normalizeSchema(fallback,fallback)}
   }
 
   function captureWorkspace(){
@@ -1046,13 +1226,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
     setSpaceState({workspace:patch,schema:dynamicSchema,context:{name:dynamicContext.name,type:dynamicContext.type,source:dynamicContext.source,ephemeral:dynamicContext.ephemeral,updatedAt:dynamicContext.updatedAt}});
   }
   function escapeDyn(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  function schemaLabel(s){return ({split_view:'Split View · 코드/데이터',flashcard:'Flashcard · 회상',canvas:'Canvas · 아이디어',focus_reader:'Focus Reader · 독해'})[s.layout_mode]||s.layout_mode}
+  function schemaLabel(s){return ({split_view:'코드·데이터 학습',flashcard:'회상·퀴즈 학습',canvas:'아이디어 정리',focus_reader:'집중 읽기',conversation:'실전 회화'})[s.layout_mode]||'맞춤 학습'}
   function updateProtocolUI(){
     const label=document.querySelector('#dynamicModeLabel');if(label)label.textContent=schemaLabel(dynamicSchema);
     const src=document.querySelector('#dynamicEngineSource');if(src)src.textContent=engineSource;
     const pre=document.querySelector('#dynamicSchemaJson');if(pre)pre.textContent=JSON.stringify({...dynamicSchema,_engine:lastAiMeta},null,2);
-    const r=rooms[dynamicSpaceId]||rooms.teach;document.querySelector('#rtIcon').textContent=r.icon;document.querySelector('#rtTitle').textContent=r.title;document.querySelector('#rtSub').textContent='AI가 요청·자료 맥락·학습 패턴을 함께 보고 화면과 학습 도구를 정해진 프로토콜 안에서 재구성합니다.';
-    document.querySelector('#rtChips').innerHTML=`<span class="meta-pill">${dynamicSchema.study_type}</span><span class="meta-pill">Layout · ${dynamicSchema.layout_mode}</span><span class="meta-pill">Persona · ${escapeDyn(dynamicSchema.ai_persona.role)}</span>`;
+    const r=rooms[dynamicSpaceId]||rooms.teach;const meta=activeStudySpaceMeta||resolveStudySpaceMeta(activeStudySpaceId);document.querySelector('#rtIcon').textContent=r.icon;document.querySelector('#rtTitle').textContent=meta?.title||r.title;document.querySelector('#rtSub').textContent=meta?.prompt||meta?.description||'내 요청을 기준으로 학습 방식과 필요한 도구를 구성합니다. 추가한 자료는 학습 내용으로만 사용합니다.';
+    document.querySelector('#rtChips').innerHTML=`<span class="meta-pill">${escapeDyn(schemaLabel(dynamicSchema))}</span><span class="meta-pill">AI 코치 · ${escapeDyn(dynamicSchema.ai_persona.role)}</span>`;
   }
   function toolbeltHTML(){
     const t=dynamicSchema.active_tools;let tools=[];if(t.code_editor)tools.push('<span class="dynamic-tool-chip">⌨️ Code editor</span>');if(t.terminal)tools.push('<span class="dynamic-tool-chip">▸ Static check</span>');if(t.timer_type)tools.push(`<span class="dynamic-tool-chip dynamic-timer">◷ <strong id="dynTimerValue">25:00</strong><button type="button" id="dynTimerToggle">시작</button></span>`);if(t.bgm_recommendation)tools.push(`<span class="dynamic-tool-chip">♫ <button type="button" id="dynBgmToggle">${escapeDyn(t.bgm_recommendation)}</button></span>`);return tools.join('')||'<span class="dynamic-tool-chip">필요한 도구만 활성화됨</span>';
@@ -1080,7 +1260,14 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
     const paras=readerParagraphs();const sums=work.aiSummary?.lines?.length?work.aiSummary.lines:[];const focus=Math.max(0,Math.min(Number(work.focusParagraph||0),paras.length-1));const explain=work.aiParagraphExplain;const summaryLabel=sums.length?(lastAiMeta?.fallback?'SAFE 3-LINE SUMMARY':'AI 3-LINE SUMMARY'):'3-LINE SUMMARY';
     return `<div class="dyn-reader-layout"><section class="dyn-reader-doc"><article class="dyn-reader-page is-focus" id="dynReaderPage"><h2>${escapeDyn(dynamicContext.name||'Focus Reader')}</h2><div class="dyn-reader-byline">SOURCE DOCUMENT · 문단을 누르면 포커스가 이동합니다. 업로드 원문은 STUDYWORLD DB에 저장하지 않습니다.</div>${paras.map((p,i)=>`<p class="dyn-reader-paragraph ${i===focus?'is-focused':''}" data-index="${i}">${escapeDyn(p)}</p>`).join('')}</article></section><aside class="dyn-reader-rail"><div class="dynamic-mode-meta" style="margin-bottom:14px"><span class="dynamic-live-dot"></span><div><small>${summaryLabel}</small><strong>${escapeDyn(dynamicSchema.ai_persona.role)}</strong></div></div><div class="dyn-reader-actions"><button type="button" id="dynRefreshSummary">✦ AI 3줄 요약</button><button type="button" id="dynExplainParagraph">선택 문단 설명</button></div>${sums.length?sums.map((s,i)=>`<div class="dyn-summary-pin"><small>PIN ${i+1}</small><p>${escapeDyn(s)}</p></div>`).join(''):'<div class="dyn-summary-empty">아직 AI 요약을 생성하지 않았습니다. 자료를 추가한 뒤 ‘AI 3줄 요약’을 눌러주세요.</div>'}${explain?`<div class="dyn-ai-result reader"><strong>선택 문단 AI 설명</strong><p>${escapeDyn(explain.explanation||'')}</p><div>근거 · ${escapeDyn(explain.evidence||'')}</div><div>확인 질문 · ${escapeDyn(explain.check_question||'')}</div></div>`:''}<textarea class="dyn-reader-notes" id="dynReaderNotes" placeholder="읽으면서 남길 나의 노트">${escapeDyn(work.readerNotes||'')}</textarea></aside></div>`;
   }
-  function renderDynamicLayout(){const stateNow=getSpaceState();const work={...defaultWorkspace(),...(stateNow.workspace||{})};const frame=document.querySelector('#runtimeArea');if(!frame)return;const body=dynamicSchema.layout_mode==='split_view'?renderSplit(work):dynamicSchema.layout_mode==='flashcard'?renderFlash(work):dynamicSchema.layout_mode==='canvas'?renderCanvas(work):renderReader(work);frame.innerHTML=`<div class="dynamic-space-shell"><div class="dynamic-space-topline"><section class="dynamic-persona-card"><div class="dynamic-persona-orb">✦</div><div class="dynamic-persona-copy"><small>ACTIVE AI PERSONA</small><strong>${escapeDyn(dynamicSchema.ai_persona.role)}</strong><span>${escapeDyn(dynamicSchema.ai_persona.system_prompt)}</span></div>${aiMetaLabel(lastAiMeta)}</section><div class="dynamic-toolbelt">${toolbeltHTML()}</div></div><section class="dynamic-layout-frame">${body}</section></div>`;bindDynamicLayout(work);updateTimerUI()}
+  function renderConversation(work){
+    const history=Array.isArray(work.conversationHistory)?work.conversationHistory:[];const feedback=work.conversationFeedback;const meta=activeStudySpaceMeta||(activeStudySpaceId?studySpaceMetaById.get(activeStudySpaceId):null);const goal=meta?.prompt||'실전 회화를 자연스럽게 이어가며 연습합니다.';
+    const log=history.length?history.map(item=>`<div class="dyn-chat-bubble ${item.role==='ai'?'ai':'user'}"><strong>${item.role==='ai'?'AI':'나'}</strong><div>${escapeDyn(item.text||'')}</div>${item.translation?`<span class="dyn-chat-translation">${escapeDyn(item.translation)}</span>`:''}</div>`).join(''):'<div class="dyn-summary-empty">AI가 현재 요청에 맞는 역할과 상황으로 첫 대화를 준비합니다.</div>';
+    const feedbackHtml=feedback?`<div class="dyn-feedback-card"><div><small>GOOD</small><p>${escapeDyn(feedback.strength||'')}</p></div><div><small>CORRECTION</small><p>${escapeDyn(feedback.correction||'')}</p></div><div><small>BETTER EXPRESSION</small><p>${escapeDyn(feedback.better_expression||'')}</p></div><div><small>NEXT</small><p>${escapeDyn(feedback.next_goal||'')}</p></div></div>`:'<div class="dyn-summary-empty">대화가 시작되면 최근 발화에 대한 짧은 교정이 여기에 표시됩니다.</div>';
+    return `<div class="dyn-conversation-layout"><section class="dyn-conversation-main"><div class="dyn-conversation-head"><small>ROLEPLAY GOAL</small><strong>${escapeDyn(meta?.title||'실전 회화')}</strong><p>${escapeDyn(goal)}</p></div><div class="dyn-conversation-log" id="dynConversationLog">${log}</div><form class="dyn-conversation-form" id="dynConversationForm"><input id="dynConversationInput" maxlength="700" autocomplete="off" placeholder="상대에게 실제로 말하듯 입력해 보세요"><button type="submit">보내기</button></form></section><aside class="dyn-conversation-rail"><h3>${escapeDyn(dynamicSchema.ai_persona.role)}</h3><p>대화 흐름은 유지하고, 사용자의 발화 뒤에만 필요한 교정을 짧게 제공합니다.</p>${feedbackHtml}</aside></div>`;
+  }
+
+  function renderDynamicLayout(){const stateNow=getSpaceState();const work={...defaultWorkspace(),...(stateNow.workspace||{})};const frame=document.querySelector('#runtimeArea');if(!frame)return;const body=dynamicSchema.layout_mode==='split_view'?renderSplit(work):dynamicSchema.layout_mode==='flashcard'?renderFlash(work):dynamicSchema.layout_mode==='canvas'?renderCanvas(work):dynamicSchema.layout_mode==='conversation'?renderConversation(work):renderReader(work);frame.innerHTML=`<div class="dynamic-space-shell"><div class="dynamic-space-topline"><section class="dynamic-persona-card"><div class="dynamic-persona-orb">✦</div><div class="dynamic-persona-copy"><small>AI 학습 코치</small><strong>${escapeDyn(dynamicSchema.ai_persona.role)}</strong><span>${escapeDyn(dynamicSchema.ai_persona.system_prompt)}</span></div>${aiMetaLabel(lastAiMeta)}</section><div class="dynamic-toolbelt">${toolbeltHTML()}</div></div><section class="dynamic-layout-frame">${body}</section></div>`;bindDynamicLayout(work);updateTimerUI()}
 
   function drawCanvasLines(){const stage=document.querySelector('#dynCanvasStage'),svg=document.querySelector('#dynNodeLines');if(!stage||!svg)return;const cards=[...stage.querySelectorAll('.dyn-node-card')];const sr=stage.getBoundingClientRect();svg.innerHTML='';for(let i=0;i<cards.length-1;i++){const a=cards[i].getBoundingClientRect(),b=cards[i+1].getBoundingClientRect();const x1=a.left-sr.left+a.width/2,y1=a.top-sr.top+a.height/2,x2=b.left-sr.left+b.width/2,y2=b.top-sr.top+b.height/2;svg.insertAdjacentHTML('beforeend',`<path d="M ${x1} ${y1} C ${(x1+x2)/2} ${y1}, ${(x1+x2)/2} ${y2}, ${x2} ${y2}" fill="none" stroke="rgba(72,111,91,.42)" stroke-width="2" stroke-dasharray="6 6"/>`)}}
   function saveCanvasPositions(){const cards=[...document.querySelectorAll('.dyn-node-card')];if(!cards.length)return;const nodes=cards.map(c=>({id:c.dataset.nodeId,x:parseFloat(c.style.left)||0,y:parseFloat(c.style.top)||0,text:c.querySelector('div')?.textContent||'아이디어'}));setSpaceState({workspace:{canvasNodes:nodes}})}
@@ -1088,9 +1275,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
 
   function currentNodes(){return [...document.querySelectorAll('.dyn-node-card')].map(n=>({text:n.querySelector('div')?.textContent||''}))}
   async function recordLearningEvent(eventType,{mode=dynamicSchema?.study_type||'',durationSeconds=0,metadata={}}={}){if(!readDemoProfile())return;try{await apiFetch(STUDYWORLD_SETTINGS.endpoints.learningEvents,{method:'POST',body:JSON.stringify({eventType,mode,durationSeconds,metadata})})}catch(_e){}}
-  async function requestAiAction(action,{prompt='',selectedText=''}={}){
-    const stateNow=getSpaceState();const code=document.querySelector('#dynCodeEditor')?.value||transientCode||stateNow.workspace.code||'';
-    const payload={spaceId:activeStudySpaceId||null,action,personaId:dynamicSchema.ai_persona.id,prompt,selectedText,context:{name:dynamicContext.name,type:dynamicContext.type,text:contextExcerpt(24000)},workspace:{code,nodes:currentNodes()}};
+  async function requestAiAction(action,{prompt='',selectedText='',conversation=null}={}){
+    const stateNow=getSpaceState();const code=document.querySelector('#dynCodeEditor')?.value||transientCode||stateNow.workspace.code||'';const meta=activeStudySpaceMeta||(activeStudySpaceId?studySpaceMetaById.get(activeStudySpaceId):null);
+    const history=Array.isArray(conversation)?conversation:(Array.isArray(stateNow.workspace.conversationHistory)?stateNow.workspace.conversationHistory:[]);
+    const payload={spaceId:activeStudySpaceId||null,action,personaId:dynamicSchema.ai_persona.id,prompt,selectedText,context:{name:dynamicContext.name,type:dynamicContext.type,text:contextExcerpt(24000)},workspace:{code,nodes:currentNodes(),conversation:history.slice(-12),roomPrompt:meta?.prompt||meta?.title||''}};
     const result=await apiFetch(STUDYWORLD_SETTINGS.endpoints.studyActions,{method:'POST',timeoutMs:STUDYWORLD_SETTINGS.aiRequestTimeoutMs,body:JSON.stringify(payload)});lastAiMeta=result?.meta||null;await recordLearningEvent('ai_action',{metadata:{action,source:result?.meta?.fallback?'fallback':'ai'}});return result;
   }
   async function withButtonBusy(button,fn){if(!button)return fn();const old=button.textContent;button.disabled=true;button.textContent='AI 처리 중…';try{return await fn()}finally{button.disabled=false;button.textContent=old}}
@@ -1099,6 +1287,17 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   async function explainFocusedParagraph(button){const paras=readerParagraphs(),idx=Number(getSpaceState().workspace.focusParagraph||0),selected=paras[Math.max(0,Math.min(idx,paras.length-1))]||'';await withButtonBusy(button,async()=>{const r=await requestAiAction('paragraph_explain',{prompt:'선택한 문단을 근거 중심으로 쉽게 설명해줘',selectedText:selected});setSpaceState({workspace:{aiParagraphExplain:r.data}});renderDynamicLayout()})}
   async function suggestNode(button){await withButtonBusy(button,async()=>{const r=await requestAiAction('node_suggestion',{prompt:'현재 노드에서 빠진 관점 하나를 추천해줘'});setSpaceState({workspace:{aiNodeSuggestion:r.data}});renderDynamicLayout()})}
   async function reviewCode(button,work){const req=document.querySelector('#dynReviewRequest')?.value||'';if(!document.querySelector('#dynCodeEditor')?.value.trim()){showToast('리뷰할 코드를 먼저 입력해 주세요.');return}await withButtonBusy(button,async()=>{const r=await requestAiAction('code_review',{prompt:req||'이 코드를 질문과 힌트 중심으로 리뷰해줘'});setSpaceState({workspace:{reviewRequest:req,aiCodeReview:r.data,...(!dynamicContext.ephemeral?{code:document.querySelector('#dynCodeEditor')?.value||work.code}:{})}});renderDynamicLayout()})}
+
+  async function startConversation(){
+    const work=getSpaceState().workspace;if(Array.isArray(work.conversationHistory)&&work.conversationHistory.length)return;
+    const r=await requestAiAction('conversation_turn',{prompt:'사용자가 요청한 학습 목표에 맞는 역할극을 시작하고 상대 역할로 첫 질문을 해줘.',conversation:[]});
+    const history=[{role:'ai',text:r.data.reply||'',translation:r.data.translation||''}];
+    setSpaceState({workspace:{conversationHistory:history,conversationFeedback:{...(r.data.feedback||{}),next_goal:r.data.next_goal||''}}});renderDynamicLayout();
+  }
+  async function sendConversationTurn(text,button){
+    const value=String(text||'').trim();if(!value)return;const work=getSpaceState().workspace;const history=[...(Array.isArray(work.conversationHistory)?work.conversationHistory:[]),{role:'user',text:value,translation:''}].slice(-24);setSpaceState({workspace:{conversationHistory:history}});renderDynamicLayout();
+    await withButtonBusy(button,async()=>{const r=await requestAiAction('conversation_turn',{prompt:value,conversation:history});const next=[...history,{role:'ai',text:r.data.reply||'',translation:r.data.translation||''}].slice(-24);setSpaceState({workspace:{conversationHistory:next,conversationFeedback:{...(r.data.feedback||{}),next_goal:r.data.next_goal||''}}});renderDynamicLayout();const log=document.querySelector('#dynConversationLog');if(log)log.scrollTop=log.scrollHeight;});
+  }
 
   function bindDynamicLayout(work){
     document.querySelector('#dynRunCode')?.addEventListener('click',()=>{const code=document.querySelector('#dynCodeEditor')?.value||'';const checks=[];checks.push(code.trim()?'✓ 코드 텍스트 감지':'! 코드가 비어 있음');checks.push(/[{}()]/.test(code)?'✓ 기본 구문 기호 감지':'! 구문 구조를 확인해보세요');checks.push(/return\b/.test(code)?'✓ return 키워드 감지':'· return 키워드 없음');if(!dynamicContext.ephemeral)setSpaceState({workspace:{code,terminal:['$ static-check',...checks]}});const terminal=document.querySelector('#dynTerminal');if(terminal)terminal.innerHTML=`<b>STATIC CHECK · 실제 실행 아님</b>${checks.map(x=>`<div>${escapeDyn(x)}</div>`).join('')}`;recordLearningEvent('tool_used',{metadata:{action:'static_check'}})});
@@ -1117,6 +1316,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
     document.querySelector('#dynReaderNotes')?.addEventListener('input',e=>setSpaceState({workspace:{readerNotes:e.target.value}}));
     document.querySelector('#dynCodeEditor')?.addEventListener('input',e=>{if(dynamicContext.ephemeral)transientCode=e.target.value;else setSpaceState({workspace:{code:e.target.value}})});
     document.querySelector('#dynRecallDraft')?.addEventListener('input',e=>setSpaceState({workspace:{recallDraft:e.target.value}}));
+    document.querySelector('#dynConversationForm')?.addEventListener('submit',e=>{e.preventDefault();const input=document.querySelector('#dynConversationInput');const value=input?.value.trim();if(!value)return;const button=e.currentTarget.querySelector('button[type="submit"]');if(input)input.value='';sendConversationTurn(value,button).catch(err=>showToast(err?.message||'회화 응답을 처리하지 못했어요.'))});
     document.querySelector('#dynTimerToggle')?.addEventListener('click',toggleDynamicTimer);
     document.querySelector('#dynBgmToggle')?.addEventListener('click',e=>{e.currentTarget.classList.toggle('active');const active=e.currentTarget.classList.contains('active');if(active)recordLearningEvent('tool_used',{metadata:{action:'bgm'}});showToast(active?'집중 BGM 추천을 켰어요. (오디오 연결 전)':'BGM 추천을 껐어요.')});
   }
@@ -1124,12 +1324,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   function updateTimerUI(){const el=document.querySelector('#dynTimerValue'),btn=document.querySelector('#dynTimerToggle');if(el){const m=Math.floor(dynamicTimer.seconds/60),s=dynamicTimer.seconds%60;el.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}if(btn)btn.textContent=dynamicTimer.running?'정지':'시작'}
   function toggleDynamicTimer(){dynamicTimer.running=!dynamicTimer.running;if(dynamicTimer.tick)clearInterval(dynamicTimer.tick);if(dynamicTimer.running){recordLearningEvent('tool_used',{metadata:{action:'timer'}});dynamicTimer.startedAt=Date.now();dynamicTimer.tick=setInterval(()=>{dynamicTimer.seconds=Math.max(0,dynamicTimer.seconds-1);updateTimerUI();if(dynamicTimer.seconds<=0){clearInterval(dynamicTimer.tick);dynamicTimer.running=false;recordLearningEvent('session_completed',{durationSeconds:25*60});showToast('포커스 세션이 끝났어요.')}} ,1000)}updateTimerUI()}
 
-  async function ensureAiMaterialForLayout(){const work=getSpaceState().workspace;if(!dynamicContext.text)return;try{if(dynamicSchema.layout_mode==='flashcard'&&!work.aiFlashcards?.length)await generateFlashcards(null);if(dynamicSchema.layout_mode==='focus_reader'&&!work.aiSummary?.lines?.length)await generateSummary(null)}catch(_e){}}
-  async function applyIntent(prompt,{silent=false,recommendationAccepted=false,roomModification=false}={}){
+  async function ensureAiMaterialForLayout(){const work=getSpaceState().workspace;try{if(dynamicSchema.layout_mode==='conversation'&&!work.conversationHistory?.length){await startConversation();return}if(!dynamicContext.text)return;if(dynamicSchema.layout_mode==='flashcard'&&!work.aiFlashcards?.length)await generateFlashcards(null);if(dynamicSchema.layout_mode==='focus_reader'&&!work.aiSummary?.lines?.length)await generateSummary(null)}catch(_e){}}
+  async function applyIntent(prompt,{silent=false,recommendationAccepted=false,roomModification=false,useMaterialForDesign=false}={}){
     const q=(prompt||'').trim();if(!q)return;captureWorkspace();const form=document.querySelector('#dynamicCommandForm');form?.classList.add('is-loading');const input=document.querySelector('#dynamicCommandInput');if(input)input.disabled=true;
-    try{const previousMode=dynamicSchema?.study_type||'';const next=await requestIntentSchema(q,{roomModification});dynamicSchema=next;setSpaceState({schema:next,context:{name:dynamicContext.name,type:dynamicContext.type,source:dynamicContext.source,ephemeral:dynamicContext.ephemeral,updatedAt:dynamicContext.updatedAt}});updateProtocolUI();renderDynamicLayout();const eventType=recommendationAccepted?'recommendation_accepted':(previousMode&&previousMode!==next.study_type?'mode_switched':'mode_selected');recordLearningEvent(eventType,{mode:next.study_type,metadata:{source:lastAiMeta?.fallback?'fallback':'ai'}});await ensureAiMaterialForLayout();if(!silent){const quota=lastRoomModificationUsage?` · 룸 수정 ${lastRoomModificationUsage.remaining}회 남음`:'';showToast(`${schemaLabel(next)}로 학습 공간을 재구성했어요.${quota}`)}}catch(error){showToast(error?.message||'학습 공간 수정 요청을 처리하지 못했어요.')}finally{form?.classList.remove('is-loading');roomModificationArmed=false;if(input){input.disabled=false;input.value='';input.placeholder=DEFAULT_DYNAMIC_PLACEHOLDER;input.focus()}}
+    try{const previousMode=dynamicSchema?.study_type||'';const next=await requestIntentSchema(q,{roomModification,useMaterialForDesign});dynamicSchema=next;setSpaceState({schema:next,context:{name:dynamicContext.name,type:dynamicContext.type,source:dynamicContext.source,ephemeral:dynamicContext.ephemeral,updatedAt:dynamicContext.updatedAt}});updateProtocolUI();renderDynamicLayout();const eventType=recommendationAccepted?'recommendation_accepted':(previousMode&&previousMode!==next.study_type?'mode_switched':'mode_selected');recordLearningEvent(eventType,{mode:next.study_type,metadata:{source:lastAiMeta?.fallback?'fallback':'ai'}});await ensureAiMaterialForLayout();if(!silent){const quota=lastRoomModificationUsage?(lastRoomModificationUsage.studentBonus?` · 학생 보너스 ${lastRoomModificationUsage.studentBonus.remaining}회 남음`:` · 오늘 ${lastRoomModificationUsage.remaining}회 더 변경 가능`):'';showToast(`${schemaLabel(next)} 방식으로 학습방을 바꿨어요.${quota}`)}}catch(error){showToast(error?.message||'학습 공간 수정 요청을 처리하지 못했어요.')}finally{form?.classList.remove('is-loading');roomModificationArmed=false;if(input){input.disabled=false;input.value='';input.placeholder=DEFAULT_DYNAMIC_PLACEHOLDER;input.focus()}}
   }
-  function contextSuggestionFor(file){const ext=file.name.split('.').pop().toLowerCase();if(['js','jsx','ts','tsx','py','json','csv'].includes(ext))return {label:`${file.name} 분석 완료 · AI가 추천 모드를 판단하고 있어요.`,prompt:'업로드한 코드/데이터를 기준으로 가장 적합한 학습 모드를 추천해줘'};if(ext==='pdf'||['md','txt'].includes(ext))return {label:`${file.name} 분석 완료 · AI가 읽기/회상 중 적합한 모드를 추천하고 있어요.`,prompt:'업로드한 문서를 기준으로 가장 적합한 학습 모드를 추천해줘'};return {label:`${file.name}을 현재 학습 컨텍스트에 연결했어요.`,prompt:'이 자료에 가장 맞는 학습 모드를 추천해줘'}}
+  function contextSuggestionFor(file){return {label:`${file.name}을 학습 자료로 연결했어요. 현재 학습방 구성은 그대로 유지됩니다.`,prompt:'이 자료의 내용과 현재 학습 목표를 참고해서 더 잘 맞는 공부 방식을 추천해줘'}}
   async function loadPdfContext(file){const form=new FormData();form.append('file',file);if(activeStudySpaceId)form.append('spaceId',activeStudySpaceId);const result=await apiFetch(STUDYWORLD_SETTINGS.endpoints.studyPdfContext,{method:'POST',timeoutMs:60000,body:form});lastAiMeta=result.meta||null;return {name:result.title||file.name,type:'application/pdf',text:String(result.text||'').slice(0,24000),source:'upload',ephemeral:true,updatedAt:new Date().toISOString()}}
   async function handleContextFile(file){
     if(!file)return;const box=document.querySelector('#dynamicContextSuggestion');if(box){box.hidden=false;box.innerHTML='<span>자료를 안전하게 읽는 중… STUDYWORLD DB에는 원문을 저장하지 않으며, AI 분석에 필요한 범위는 설정된 AI 제공자에 일시 전송됩니다.</span>'}
@@ -1137,28 +1337,26 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
       const ext=file.name.split('.').pop().toLowerCase();if(!SAFE_CONTEXT_EXTENSIONS.has(ext))throw new Error('지원하는 학습자료 형식이 아니에요.');let nextContext;
       if(ext==='pdf'){nextContext=await loadPdfContext(file)}else{if(file.size>2.5*1024*1024)throw new Error('텍스트/코드 자료는 2.5MB 이하만 임시로 읽을 수 있어요.');const text=await file.text();if(text.slice(0,4096).includes('\0'))throw new Error('텍스트 파일로 읽을 수 없는 바이너리 자료예요.');nextContext={name:file.name,type:file.type||ext,text:text.slice(0,24000),source:'upload',ephemeral:true,updatedAt:new Date().toISOString()}}
       dynamicContext=nextContext;transientCode=['js','jsx','ts','tsx','py','json','csv'].includes(ext)?dynamicContext.text:'';setSpaceState({context:{name:dynamicContext.name,type:dynamicContext.type,source:'upload',ephemeral:true,updatedAt:dynamicContext.updatedAt},workspace:{aiFlashcards:[],aiSummary:null,aiParagraphExplain:null,aiCodeReview:null,aiNodeSuggestion:null}});
-      const s=contextSuggestionFor(file);if(box){box.innerHTML=`<span>${escapeDyn(s.label)}</span><button type="button">AI 추천 모드 적용</button>`;box.querySelector('button').onclick=()=>{box.hidden=true;applyIntent(s.prompt,{recommendationAccepted:true})}}
-      const suggested=await requestIntentSchema(s.prompt,{preview:true});const label=schemaLabel(suggested);if(box){box.querySelector('span').textContent=`${file.name} · AI 추천: ${label}`;box.dataset.recommendedPrompt=s.prompt}showToast('자료를 임시 컨텍스트로 연결했어요. 원문은 STUDYWORLD DB에 저장하지 않지만 AI 기능 사용 시 설정된 AI 제공자에 필요한 범위가 전달됩니다.');
+      const s=contextSuggestionFor(file);if(box){box.innerHTML=`<span>${escapeDyn(s.label)}</span><button type="button">이 자료에 맞는 공부 방식 추천받기</button>`;box.querySelector('button').onclick=()=>{box.hidden=true;applyIntent(s.prompt,{recommendationAccepted:true,useMaterialForDesign:true})}}
+      showToast('자료를 학습 내용으로 연결했어요. 학습방 구성은 자동으로 바뀌지 않습니다.');
     }catch(error){if(box){box.innerHTML=`<span>${escapeDyn(error?.message||'자료를 읽지 못했어요.')}</span>`}showToast(error?.message||'자료를 읽지 못했어요.')}
   }
 
-  async function refreshPreferencePanel(){const panel=document.querySelector('#dynamicPreferencePanel');if(!panel||!readDemoProfile())return;panel.innerHTML='<span>학습 패턴을 불러오는 중…</span>';try{const p=await apiFetch(STUDYWORLD_SETTINGS.endpoints.learningPreferences);const labels=p.labels||[];const confidence=({early:'탐색 중',forming:'형성 중',established:'비교적 안정적'})[p.confidence]||'탐색 중';panel.innerHTML=`<strong>나의 학습 패턴 · ${confidence}</strong><span>${labels.length?labels.map(escapeDyn).join(' · '):'아직 데이터가 적어요. 여러 학습 방식을 경험하면 여기에 패턴이 생깁니다.'}</span><small>표본 ${Number(p.sampleCount||0)}회 · 답 보기 전 시도 ${Number(p.attemptBeforeAnswerCount||0)}회 · 힌트 ${Number(p.toolUse?.hint||0)}회 · AI 추천 수락 ${Number(p.recommendationAcceptCount||0)}회</small><small>학습 원문·질문 본문은 선호 프로필에 저장하지 않습니다.</small>`}catch(_e){panel.innerHTML='<span>학습 패턴을 불러오지 못했어요.</span>'}}
   function mountEngineControls(){
     const dock=document.querySelector('#dynamicCommandDock');if(dock)dock.hidden=false;
     document.querySelector('#dynamicCommandForm')?.addEventListener('submit',e=>{e.preventDefault();const input=document.querySelector('#dynamicCommandInput');const v=input?.value.trim();if(v){const modify=roomModificationArmed;roomModificationArmed=false;applyIntent(v,{roomModification:modify})}});
-    document.querySelector('#dynamicSchemaToggle')?.addEventListener('click',()=>{const p=document.querySelector('#dynamicSchemaPanel');if(p)p.hidden=!p.hidden});
     document.querySelector('#dynamicContextFile')?.addEventListener('change',e=>{roomModificationArmed=false;const input=document.querySelector('#dynamicCommandInput');if(input)input.placeholder=DEFAULT_DYNAMIC_PLACEHOLDER;const f=e.target.files?.[0];handleContextFile(f);e.target.value=''});
-    document.querySelector('#dynamicPreferenceToggle')?.addEventListener('click',()=>{const p=document.querySelector('#dynamicPreferencePanel');if(!p)return;p.hidden=!p.hidden;if(!p.hidden)refreshPreferencePanel()});
-    document.querySelector('#modifyRoom')?.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();roomModificationArmed=true;const input=document.querySelector('#dynamicCommandInput');if(input){input.value='@AI ';input.placeholder='룸 구조/기능 수정 요청 · 별도 사용량이 적용됩니다';input.focus()}showToast('다음 요청은 룸 수정 사용량으로 계산됩니다.')},true);
+    document.querySelector('#modifyRoom')?.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();roomModificationArmed=true;const input=document.querySelector('#dynamicCommandInput');if(input){input.value='';input.placeholder='예: 회화 연습 중심으로 바꾸고, 피드백은 마지막에 해줘';input.focus()}showToast('바꾸고 싶은 내용을 적어 주세요. 변경 종류에 따라 오늘의 AI 변경 횟수에 포함될 수 있어요.')},true);
+    document.querySelector('#runtimeBack')?.addEventListener('click',()=>returnFromRuntime());
   }
   mountEngineControls();
 
   // eslint-disable-next-line no-func-assign
-  openRoom=function(key,spaceId=null){
-    if(!rooms[key])key='teach';captureWorkspace();roomModificationArmed=false;lastRoomModificationUsage=null;const commandInput=document.querySelector('#dynamicCommandInput');if(commandInput){commandInput.placeholder=DEFAULT_DYNAMIC_PLACEHOLDER;commandInput.value=''}if(spaceId)activeStudySpaceId=spaceId;dynamicSpaceId=key;state.currentRoom=key;transientCode='';dynamicContext={name:'',type:'',text:'',source:'',ephemeral:false,updatedAt:''};if(typeof saveDemoSession==='function')saveDemoSession({currentRoom:key,lastView:'runtime',activeStudySpaceId:activeStudySpaceId||null});
-    const saved=getSpaceState();const savedContext=saved.context||{};dynamicContext={...dynamicContext,...savedContext,text:''};dynamicSchema=normalizeSchema(saved.schema||schemaForRoom(key),schemaForRoom(key));engineSource=saved.schema?'SAVED DYNAMIC SCHEMA':'ROOM SEED → DYNAMIC SCHEMA';
-    document.body.dataset.runtimeRoom='dynamic';document.querySelector('#dynamicCommandDock').hidden=false;updateProtocolUI();renderDynamicLayout();switchView('runtime');
-    if(activeStudySpaceId){apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(activeStudySpaceId)}/state`).then(remote=>{if(!remote||(!remote.schema&&!remote.context&&!remote.workspace))return;const id=stateStorageId();const store=readDynamicStore();store[id]=sanitizeStoredEntry({schema:remote.schema||dynamicSchema,context:remote.context||dynamicContext,workspace:{...defaultWorkspace(),...(remote.workspace||{})}});writeDynamicStore(store);dynamicContext={...dynamicContext,...(store[id].context||{}),text:''};dynamicSchema=normalizeSchema(store[id].schema||schemaForRoom(key),schemaForRoom(key));engineSource='CLOUDFLARE D1 · SYNCED';updateProtocolUI();renderDynamicLayout()}).catch(()=>{})}
+  openRoom=function(key,spaceId=null,meta=null){
+    if(!rooms[key])key='teach';if(state.view!=='runtime')roomReturnContext=captureRoomReturnContext();captureWorkspace();roomModificationArmed=false;lastRoomModificationUsage=null;const commandInput=document.querySelector('#dynamicCommandInput');if(commandInput){commandInput.placeholder=DEFAULT_DYNAMIC_PLACEHOLDER;commandInput.value=''}activeStudySpaceId=spaceId||null;activeStudySpaceMeta=resolveStudySpaceMeta(spaceId,meta);if(spaceId&&activeStudySpaceMeta)studySpaceMetaById.set(spaceId,activeStudySpaceMeta);dynamicSpaceId=key;state.currentRoom=key;transientCode='';dynamicContext={name:'',type:'',text:'',source:'',ephemeral:false,updatedAt:''};if(typeof saveDemoSession==='function')saveDemoSession({currentRoom:key,lastView:'runtime',activeStudySpaceId:activeStudySpaceId||null});
+    const saved=getSpaceState();const savedContext=saved.context||{};dynamicContext={...dynamicContext,...savedContext,text:''};const roomGoal=String(activeStudySpaceMeta?.prompt||activeStudySpaceMeta?.title||'');const preferConversation=key==='language'&&/(비즈니스\s*영어|영어\s*회화|외국어\s*말하기|회화|말하기|롤플레이|role.?play|conversation|interview|면접|미팅|회의|협상)/i.test(roomGoal);const localSeed=schemaForRoom(key);const initialSchema=preferConversation&&saved.schema?.study_type==='recall'?localSeed:(saved.schema||localSeed);dynamicSchema=normalizeSchema(initialSchema,localSeed);engineSource=saved.schema&&!preferConversation?'SAVED DYNAMIC SCHEMA':'ROOM GOAL → DYNAMIC SCHEMA';
+    document.body.dataset.runtimeRoom='dynamic';document.querySelector('#dynamicCommandDock').hidden=false;updateProtocolUI();renderDynamicLayout();syncRuntimeBackButton();switchView('runtime');if(activeStudySpaceId&&readDemoProfile())enterRoomVisit(activeStudySpaceId).catch(err=>showToast(err?.message||'학습방 체류 기록을 시작하지 못했어요.'));ensureAiMaterialForLayout();
+    if(activeStudySpaceId&&readDemoProfile()){apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(activeStudySpaceId)}/state`).then(remote=>{if(!remote||(!remote.schema&&!remote.context&&!remote.workspace))return;const id=stateStorageId();const store=readDynamicStore();const remoteSchema=preferConversation&&remote.schema?.study_type==='recall'?schemaForRoom('language'):(remote.schema||dynamicSchema);store[id]=sanitizeStoredEntry({schema:remoteSchema,context:remote.context||dynamicContext,workspace:{...defaultWorkspace(),...(remote.workspace||{})}});writeDynamicStore(store);dynamicContext={...dynamicContext,...(store[id].context||{}),text:''};dynamicSchema=normalizeSchema(store[id].schema||schemaForRoom(key),schemaForRoom(key));engineSource='저장된 학습방과 동기화됨';updateProtocolUI();renderDynamicLayout();ensureAiMaterialForLayout()}).catch(()=>{})}
   };
   window.openRoom=openRoom;
   window.studyworldDynamicEngine={protocol:DYNAMIC_UI_PROTOCOL,applyIntent,getSchema:()=>dynamicSchema,getContext:()=>({...dynamicContext,text:dynamicContext.text?'[ephemeral source loaded]':''}),openSpace:openRoom};
@@ -1295,4 +1493,4 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   });
 })();
 window.addEventListener('DOMContentLoaded',()=>{const el=$('#todayDateLabel');if(el){const d=new Date();el.textContent=new Intl.DateTimeFormat('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}});
-window.addEventListener('DOMContentLoaded',async()=>{const local=readDemoProfile();if(local){try{const session=await apiFetch(STUDYWORLD_SETTINGS.endpoints.session);if(!session?.authenticated){localStorage.removeItem(DEMO_PROFILE_KEY);localStorage.removeItem(DEMO_SESSION_KEY);updateDemoLaunchUI();return}const server=session.profile||{};const merged={...local,id:server.id||local.id,nickname:server.nickname||local.nickname,role:server.role||local.role||'user',accountOrigin:server.accountOrigin||local.accountOrigin||'member',publicCode:server.publicCode||local.publicCode||'',planetImageUrl:server.planetImageUrl||local.planetImageUrl||null,maskedPlanetKey:maskPlanetKey()};localStorage.setItem(DEMO_PROFILE_KEY,JSON.stringify(merged));updateDemoLaunchUI();await refreshMyStudySpaces()}catch(_e){}}});
+window.addEventListener('DOMContentLoaded',async()=>{const local=readDemoProfile();if(local){try{const session=await apiFetch(STUDYWORLD_SETTINGS.endpoints.session);if(!session?.authenticated){localStorage.removeItem(DEMO_PROFILE_KEY);localStorage.removeItem(DEMO_SESSION_KEY);updateDemoLaunchUI();return}const server=session.profile||{};const merged={...local,id:server.id||local.id,nickname:server.nickname||local.nickname,role:server.role||local.role||'user',accountOrigin:server.accountOrigin||local.accountOrigin||'member',accountSegment:server.accountSegment||local.accountSegment||'general',studentStatus:server.studentStatus||local.studentStatus||'none',studentStartedAt:server.studentStartedAt||local.studentStartedAt||null,publicCode:server.publicCode||local.publicCode||'',planetImageUrl:server.planetImageUrl||local.planetImageUrl||null,sessionStartedAt:server.sessionStartedAt||local.sessionStartedAt||profileSessionStartedAt()||new Date().toISOString(),maskedPlanetKey:maskPlanetKey()};localStorage.setItem(DEMO_PROFILE_KEY,JSON.stringify(merged));saveDemoSession({enteredAt:merged.sessionStartedAt});updateDemoLaunchUI();await refreshMyStudySpaces()}catch(_e){}}});
