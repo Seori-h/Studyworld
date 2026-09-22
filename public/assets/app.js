@@ -87,6 +87,17 @@ async function apiFetch(path,options={}){
   }finally{clearTimeout(t)}
 }
 
+const LEARNING_EVENT_MODES=new Set(['coding','recall','brainstorm','reading']);
+function recordLearningEvent(eventType,{mode='',durationSeconds=0,metadata={}}={}){
+  if(!readDemoProfile())return Promise.resolve(null);
+  const payload={eventType};
+  if(LEARNING_EVENT_MODES.has(mode))payload.mode=mode;
+  const duration=Number(durationSeconds||0);
+  if(Number.isFinite(duration)&&duration>0)payload.durationSeconds=duration;
+  if(metadata&&typeof metadata==='object')payload.metadata=metadata;
+  return apiFetch(STUDYWORLD_SETTINGS.endpoints.learningEvents,{method:'POST',body:JSON.stringify(payload)}).catch(()=>null);
+}
+
 function studyTitleFromPrompt(prompt,tagLabel=''){
  const labeled=String(tagLabel||'').replace(/^[^\p{L}\p{N}]+/u,'').trim();if(labeled)return labeled.slice(0,42);
  const text=String(prompt||'').replace(/\s+/g,' ').trim();if(!text)return '나의 학습 행성';
@@ -794,10 +805,10 @@ function supportStatusLabel(status){return({ai_handling:'요정 확인 중',ai_r
 function formatSupportTime(iso){if(!iso)return'';try{return new Date(iso).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}catch(_e){return''}}
 let activeSupportTicketCode='';
 let supportObjectUrls=[];
-function clearSupportObjectUrls(){for(const url of supportObjectUrls)URL.revokeObjectURL(url);supportObjectUrls=[]}
+function clearSupportObjectUrls(){for(const url of supportObjectUrls)window.URL.revokeObjectURL(url);supportObjectUrls=[]}
 async function supportAttachmentObjectUrl(url){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),STUDYWORLD_SETTINGS.requestTimeoutMs);
- try{const response=await fetch(url,{credentials:'same-origin',signal:controller.signal});if(!response.ok)throw new Error('ATTACHMENT_LOAD_FAILED');const blob=await response.blob();const objectUrl=URL.createObjectURL(blob);supportObjectUrls.push(objectUrl);return objectUrl}finally{clearTimeout(timer)}
+ try{const response=await fetch(url,{credentials:'same-origin',signal:controller.signal});if(!response.ok)throw new Error('ATTACHMENT_LOAD_FAILED');const blob=await response.blob();const objectUrl=window.URL.createObjectURL(blob);supportObjectUrls.push(objectUrl);return objectUrl}finally{clearTimeout(timer)}
 }
 function supportMessageMarkup(message){
  const sender=message.sender==='user'?'나':message.sender==='staff'?'운영팀':message.sender==='ai'?'요정':'안내';
@@ -919,7 +930,7 @@ $('#openComposerBtn').onclick=openCommunityComposer;$('#communityComposerClose')
 $('#composerBoard').addEventListener('change',updateComposerOptionalFields);
 $('#communityComposerForm').addEventListener('submit',async e=>{e.preventDefault();const p=readDemoProfile();if(!p){openDemoAccount('community');return}const board=$('#composerBoard').value;const file=$('#composerImageFile')?.files?.[0]||null;if(board==='cert'&&!file){showToast('공부 인증 게시판에는 인증 이미지가 필요해요.');return}const tags=($('#composerTags')?.value||'').split(',').map(x=>x.trim()).filter(Boolean);let image='';try{image=await uploadCommunityImage(file);const payload={board,title:$('#composerTitle').value.trim(),body:$('#composerBody').value.trim(),image,tags};await createCommunityPost(payload);closeCommunityComposer();e.target.reset();activeCommunityBoard=board;openCommunityBoard(board);showToast('게시물이 등록됐어요.')}catch(err){showToast(err?.code==='IMAGE_TOO_LARGE'?'이미지 파일은 5MB 이하로 올려주세요.':err?.code==='CERT_IMAGE_REQUIRED'?'공부 인증 이미지를 첨부해 주세요.':(err?.message||'게시물을 등록하지 못했어요.'))}});
 $('#postBackBtn').onclick=()=>openCommunityBoard(activeCommunityBoard);
-$('#postLikeBtn')?.addEventListener('click',async()=>{if(!activePostId)return;if(!readDemoProfile()){openDemoAccount('community');showToast('좋아요를 누르려면 행성 열쇠로 입장해 주세요.');return}const next=!Boolean(activePostDetail?.liked);try{const result=await setCommunityLike(activePostId,next);activePostDetail={...(activePostDetail||{}),liked:result.liked,likes:result.likes};const btn=$('#postLikeBtn');btn.setAttribute('aria-pressed',String(result.liked));btn.firstChild.textContent=result.liked?'♥ 좋아요 ':'♡ 좋아요 ';$('#postLikeCount').textContent=String(result.likes)}catch(error){showToast(error?.message||'좋아요를 반영하지 못했어요.')}});
+$('#postLikeBtn')?.addEventListener('click',async()=>{if(!activePostId)return;if(!readDemoProfile()){openDemoAccount('community');showToast('좋아요를 누르려면 행성 열쇠로 입장해 주세요.');return}const next=!activePostDetail?.liked;try{const result=await setCommunityLike(activePostId,next);activePostDetail={...(activePostDetail||{}),liked:result.liked,likes:result.likes};const btn=$('#postLikeBtn');btn.setAttribute('aria-pressed',String(result.liked));btn.firstChild.textContent=result.liked?'♥ 좋아요 ':'♡ 좋아요 ';$('#postLikeCount').textContent=String(result.likes)}catch(error){showToast(error?.message||'좋아요를 반영하지 못했어요.')}});
 $('#commentForm').addEventListener('submit',async e=>{e.preventDefault();const p=readDemoProfile();if(!p){openDemoAccount('community');return}const body=$('#commentInput').value.trim();if(!body)return;try{await createCommunityComment(activePostId,{body});$('#commentInput').value='';await renderComments();showToast('댓글이 등록됐어요.')}catch(error){showToast(error?.message||'댓글을 등록하지 못했어요.')}});
 const footerSupport=$('#footerSupport'); if(footerSupport) footerSupport.onclick=openSupportModal;
 updateDemoLaunchUI();
@@ -1120,22 +1131,34 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&keyModal&&!keyModal.hidden){e.stopImmediatePropagation();closeKeyModal()}},true);
 })();
 
-// v42 — server-backed AI Intent + Context + Learning Engine
+// v50 — scene manifest + engine registry + interaction runtime
 (function(){
-  const DYN_STORAGE='studyworld.dynamic.space.v3';
-  const ALLOWED_STUDY_TYPES=['coding','recall','brainstorm','reading','conversation'];
-  const ALLOWED_LAYOUTS=['split_view','canvas','flashcard','focus_reader','conversation'];
-  const ALLOWED_PERSONAS=['code_coach','recall_coach','reading_guide','brainstorm_partner','conversation_coach'];
-  const DYNAMIC_UI_PROTOCOL={
-    study_type:ALLOWED_STUDY_TYPES,
-    layout_mode:ALLOWED_LAYOUTS,
-    active_tools:{code_editor:'boolean',terminal:'boolean',timer_type:'string|null',bgm_recommendation:'string|null'},
-    ai_persona:{id:ALLOWED_PERSONAS,role:'server-defined string',system_prompt:'server-defined string'}
-  };
-  window.STUDYWORLD_DYNAMIC_UI_PROTOCOL=DYNAMIC_UI_PROTOCOL;
+  const DYN_STORAGE='studyworld.dynamic.space.v4';
+  const LEGACY_DYN_STORAGE='studyworld.dynamic.space.v3';
+  const ACTIVITY_TYPES=['coding','recall','brainstorm','reading','conversation'];
+  const ENGINE_IDS=['code_workbench','recall_deck','idea_canvas','focus_reader','dialogue_stage'];
+  const COMPONENT_IDS=['code_editor','static_terminal','mission_board','recall_card','recall_draft','memory_map','idea_nodes','reader_document','field_notes','dialogue_choices'];
+  const INTERACTION_IDS=['hint','quiz','reply'];
+  const PERSONA_IDS=['code_coach','recall_coach','reading_guide','brainstorm_partner','conversation_coach'];
+  const STUDY_ROOM_PROTOCOL=Object.freeze({
+    protocol_version:'2.0',
+    manifest_version:'2.0',
+    activity:ACTIVITY_TYPES,
+    scene:{engine_id:ENGINE_IDS,environment:'string',components:COMPONENT_IDS},
+    interactions:INTERACTION_IDS,
+    capabilities:{code_editor:'boolean',terminal:'boolean',timer_type:'string|null',bgm_recommendation:'string|null'},
+    persona:{id:PERSONA_IDS,role:'server-defined string',system_prompt:'server-defined string'}
+  });
+  window.STUDYWORLD_STUDY_ROOM_PROTOCOL=STUDY_ROOM_PROTOCOL;
+
+  const RuntimeCore=window.STUDYWORLD_RUNTIME_CORE;
+  if(!RuntimeCore)throw new Error('STUDYWORLD_RUNTIME_CORE_MISSING');
+  const engineRegistry=new RuntimeCore.EngineRegistry();
+  const interactionRuntime=new RuntimeCore.InteractionRuntime();
+  const studyRuntime=new RuntimeCore.StudyRuntime({engines:engineRegistry,interactions:interactionRuntime});
 
   let dynamicSpaceId='coding';
-  let dynamicSchema=null;
+  let roomManifest=null;
   let dynamicContext={name:'',type:'',text:'',source:'',ephemeral:false,updatedAt:''};
   let transientCode='';
   let dynamicTimer={seconds:25*60,running:false,tick:null,startedAt:0};
@@ -1149,28 +1172,82 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   let localActionCatalog=LOCAL_ACTION_FALLBACK;
   let localActionLoadPromise=null;
 
+  const PERSONA_DEFINITIONS=Object.freeze({
+    code_coach:{id:'code_coach',role:'소크라테스식 코드 리뷰어',system_prompt:'정답을 먼저 주지 않고 시도·복잡도·테스트 관점에서 다음 한 단계를 묻습니다.'},
+    recall_coach:{id:'recall_coach',role:'회상 훈련 코치',system_prompt:'정답을 먼저 보여주지 않고 회상 시도 뒤 단계적으로 피드백합니다.'},
+    reading_guide:{id:'reading_guide',role:'근거 중심 리딩 튜터',system_prompt:'자료의 핵심 주장과 근거를 구분하고 필요한 범위만 짧게 설명합니다.'},
+    brainstorm_partner:{id:'brainstorm_partner',role:'사고 확장 코치',system_prompt:'기존 관점에서 빠진 질문·반론·검증 기준을 제안합니다.'},
+    conversation_coach:{id:'conversation_coach',role:'실전 회화 코치',system_prompt:'사용자가 요청한 언어와 상황으로 실제 대화를 이어가고 발화 뒤에만 짧게 교정합니다.'}
+  });
+  const ENGINE_DEFAULT_COMPONENTS=Object.freeze({
+    code_workbench:['code_editor','static_terminal','mission_board'],
+    recall_deck:['recall_card','recall_draft','memory_map'],
+    idea_canvas:['idea_nodes'],
+    focus_reader:['reader_document','field_notes'],
+    dialogue_stage:['dialogue_choices']
+  });
+
   function defaultWorkspace(){return {code:`function solve(input) {\n  // 먼저 직접 시도해보세요.\n  return input;\n}\n`,reviewRequest:'',terminal:['$ ready · static check only'],flashIndex:0,flashRevealed:false,flashHintVisible:false,recallDraft:'',aiFlashcards:[],canvasNodes:[{id:'n1',x:110,y:150,text:'핵심 주제'},{id:'n2',x:390,y:90,text:'근거 / 예시'},{id:'n3',x:420,y:300,text:'반론 / 질문'}],aiNodeSuggestion:null,readerNotes:'',focusParagraph:0,aiSummary:null,aiParagraphExplain:null,aiCodeReview:null,conversationHistory:[],conversationFeedback:null,diegeticMessage:'',localActionCursor:{},localQuiz:null,localConversationStep:0}}
+  function personaDefinition(id){return PERSONA_DEFINITIONS[id]||PERSONA_DEFINITIONS.brainstorm_partner}
+  function buildManifest({activity,engine,environment,components,interactions,capabilities,persona}){
+    const p=personaDefinition(persona);
+    return {manifest_version:'2.0',activity,scene:{id:'primary',engine_id:engine,environment,components:[...components]},interactions:[...interactions],capabilities:{code_editor:Boolean(capabilities?.code_editor),terminal:Boolean(capabilities?.terminal),timer_type:capabilities?.timer_type||null,bgm_recommendation:capabilities?.bgm_recommendation||null},persona:{...p}};
+  }
+  function manifestForRoom(key){
+    if(key==='coding')return buildManifest({activity:'coding',engine:'code_workbench',environment:'code_lab',components:ENGINE_DEFAULT_COMPONENTS.code_workbench,interactions:['hint','quiz'],capabilities:{code_editor:true,terminal:true,bgm_recommendation:'lofi_cyber'},persona:'code_coach'});
+    if(key==='paper')return buildManifest({activity:'reading',engine:'focus_reader',environment:'quiet_archive',components:ENGINE_DEFAULT_COMPONENTS.focus_reader,interactions:['hint','quiz'],capabilities:{},persona:'reading_guide'});
+    if(key==='language')return buildManifest({activity:'conversation',engine:'dialogue_stage',environment:'roleplay_zone',components:ENGINE_DEFAULT_COMPONENTS.dialogue_stage,interactions:['hint','quiz','reply'],capabilities:{},persona:'conversation_coach'});
+    if(key==='exam'||key==='memory')return buildManifest({activity:'recall',engine:'recall_deck',environment:'memory_chamber',components:ENGINE_DEFAULT_COMPONENTS.recall_deck,interactions:['hint','quiz'],capabilities:{timer_type:'feynman_pomodoro'},persona:'recall_coach'});
+    return buildManifest({activity:'brainstorm',engine:'idea_canvas',environment:'idea_field',components:ENGINE_DEFAULT_COMPONENTS.idea_canvas,interactions:['hint','quiz'],capabilities:{bgm_recommendation:'quiet_focus'},persona:'brainstorm_partner'});
+  }
+  function legacyStudySchemaToManifest(raw){
+    const map={coding:'coding',recall:'memory',brainstorm:'teach',reading:'paper',conversation:'language'};
+    const seed=manifestForRoom(map[raw?.study_type]||dynamicSpaceId);
+    const tools=raw?.active_tools&&typeof raw.active_tools==='object'?raw.active_tools:{};
+    const persona=raw?.ai_persona?.id;
+    return {...seed,capabilities:{...seed.capabilities,code_editor:Boolean(tools.code_editor??seed.capabilities.code_editor),terminal:Boolean(tools.terminal??seed.capabilities.terminal),timer_type:(typeof tools.timer_type==='string'||tools.timer_type===null)?tools.timer_type:seed.capabilities.timer_type,bgm_recommendation:(typeof tools.bgm_recommendation==='string'||tools.bgm_recommendation===null)?tools.bgm_recommendation:seed.capabilities.bgm_recommendation},persona:{...personaDefinition(PERSONA_IDS.includes(persona)?persona:seed.persona.id)}};
+  }
+  function normalizeSceneManifest(raw,fallback=manifestForRoom(dynamicSpaceId)){
+    raw=raw&&typeof raw==='object'?raw:{};
+    if(!raw.scene&&raw.study_type)raw=legacyStudySchemaToManifest(raw);
+    const activity=ACTIVITY_TYPES.includes(raw.activity)?raw.activity:fallback.activity;
+    const sceneRaw=raw.scene&&typeof raw.scene==='object'?raw.scene:{};
+    const engineId=ENGINE_IDS.includes(sceneRaw.engine_id)?sceneRaw.engine_id:fallback.scene.engine_id;
+    const rawComponents=Array.isArray(sceneRaw.components)?sceneRaw.components:[];
+    const components=[...new Set(rawComponents.filter(x=>COMPONENT_IDS.includes(x)))];
+    const rawInteractions=Array.isArray(raw.interactions)?raw.interactions:[];
+    const interactions=[...new Set(rawInteractions.filter(x=>INTERACTION_IDS.includes(x)))];
+    const caps=raw.capabilities&&typeof raw.capabilities==='object'?raw.capabilities:{};
+    const personaRaw=raw.persona&&typeof raw.persona==='object'?raw.persona:{};
+    const personaId=PERSONA_IDS.includes(personaRaw.id)?personaRaw.id:fallback.persona.id;
+    const p=personaDefinition(personaId);
+    return {manifest_version:'2.0',activity,scene:{id:String(sceneRaw.id||fallback.scene.id||'primary').slice(0,80),engine_id:engineId,environment:String(sceneRaw.environment||fallback.scene.environment||'adaptive_room').slice(0,80),components:components.length?components:[...(ENGINE_DEFAULT_COMPONENTS[engineId]||fallback.scene.components)]},interactions:interactions.length?interactions:[...fallback.interactions],capabilities:{code_editor:Boolean(caps.code_editor??fallback.capabilities.code_editor),terminal:Boolean(caps.terminal??fallback.capabilities.terminal),timer_type:(typeof caps.timer_type==='string'||caps.timer_type===null)?caps.timer_type:fallback.capabilities.timer_type,bgm_recommendation:(typeof caps.bgm_recommendation==='string'||caps.bgm_recommendation===null)?caps.bgm_recommendation:fallback.capabilities.bgm_recommendation},persona:{id:p.id,role:String(personaRaw.role||p.role).slice(0,90),system_prompt:String(personaRaw.system_prompt||p.system_prompt).slice(0,500)}};
+  }
   function sanitizeStoredEntry(entry){
     if(!entry||typeof entry!=='object')return entry;
     const context={...(entry.context||{})};delete context.text;
     const workspace={...(entry.workspace||{})};delete workspace.contextText;
-    return {...entry,context:{...context,text:''},workspace};
+    const manifest=entry.manifest||entry.schema||null;
+    return {manifest,context:{...context,text:''},workspace};
   }
   function readDynamicStore(){
     try{
-      const raw=JSON.parse(localStorage.getItem(DYN_STORAGE)||'{}');
+      const primary=localStorage.getItem(DYN_STORAGE);
+      const legacy=primary?null:localStorage.getItem(LEGACY_DYN_STORAGE);
+      const raw=JSON.parse(primary||legacy||'{}');
       const safe={};Object.entries(raw||{}).forEach(([k,v])=>{safe[k]=sanitizeStoredEntry(v)});
+      if(!primary&&legacy)writeDynamicStore(safe);
       return safe;
     }catch(_e){return {}}
   }
   function writeDynamicStore(store){try{localStorage.setItem(DYN_STORAGE,JSON.stringify(store))}catch(_e){}}
   function stateStorageId(id=dynamicSpaceId){const profileId=readDemoProfile()?.id||'guest';return activeStudySpaceId?`profile:${profileId}:space:${activeStudySpaceId}`:`profile:${profileId}:template:${id}`}
-  function getSpaceState(id=stateStorageId()){const store=readDynamicStore();return store[id]||{workspace:defaultWorkspace(),schema:null,context:{}}}
+  function getSpaceState(id=stateStorageId()){const store=readDynamicStore();return store[id]||{workspace:defaultWorkspace(),manifest:null,context:{}}}
   let stateSyncTimer=null;
   function setSpaceState(patch,id=stateStorageId()){
-    const store=readDynamicStore();const prev=store[id]||{workspace:defaultWorkspace(),schema:null,context:{}};
+    const store=readDynamicStore();const prev=store[id]||{workspace:defaultWorkspace(),manifest:null,context:{}};
     const next={...prev,...patch,workspace:{...defaultWorkspace(),...(prev.workspace||{}),...(patch.workspace||{})}};
-    next.context={...(next.context||{}),text:''};delete next.workspace.contextText;
+    delete next.schema;next.context={...(next.context||{}),text:''};delete next.workspace.contextText;
     if(dynamicContext.ephemeral&&dynamicContext.source==='upload'){
       if(next.workspace.code===dynamicContext.text||transientCode)next.workspace.code='';
     }
@@ -1178,149 +1255,152 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
     if(activeStudySpaceId){
       clearTimeout(stateSyncTimer);stateSyncTimer=setTimeout(()=>{
         const current=store[id];
-        apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(activeStudySpaceId)}/state`,{method:'PUT',body:JSON.stringify({schema:current.schema,context:current.context,workspace:current.workspace})}).catch(()=>{});
+        apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(activeStudySpaceId)}/state`,{method:'PUT',body:JSON.stringify({schema:current.manifest,context:current.context,workspace:current.workspace})}).catch(()=>{});
       },700);
     }
     return next;
   }
 
-  function schemaForRoom(key){
-    if(key==='coding')return {study_type:'coding',layout_mode:'split_view',active_tools:{code_editor:true,terminal:true,timer_type:null,bgm_recommendation:'lofi_cyber'},ai_persona:{id:'code_coach',role:'소크라테스식 코드 리뷰어',system_prompt:'정답을 먼저 주지 않고 시도·복잡도·테스트 관점에서 다음 한 단계를 묻습니다.'}};
-    if(key==='paper')return {study_type:'reading',layout_mode:'focus_reader',active_tools:{code_editor:false,terminal:false,timer_type:null,bgm_recommendation:null},ai_persona:{id:'reading_guide',role:'근거 중심 리딩 튜터',system_prompt:'자료의 핵심 주장과 근거를 구분하고 필요한 범위만 짧게 설명합니다.'}};
-    if(key==='language')return {study_type:'conversation',layout_mode:'conversation',active_tools:{code_editor:false,terminal:false,timer_type:null,bgm_recommendation:null},ai_persona:{id:'conversation_coach',role:'실전 회화 코치',system_prompt:'사용자가 요청한 언어와 상황으로 실제 대화를 이어가고 발화 뒤에만 짧게 교정합니다.'}};
-    if(key==='exam'||key==='memory')return {study_type:'recall',layout_mode:'flashcard',active_tools:{code_editor:false,terminal:false,timer_type:'feynman_pomodoro',bgm_recommendation:null},ai_persona:{id:'recall_coach',role:'회상 훈련 코치',system_prompt:'정답을 먼저 보여주지 않고 회상 시도 뒤 단계적으로 피드백합니다.'}};
-    return {study_type:'brainstorm',layout_mode:'canvas',active_tools:{code_editor:false,terminal:false,timer_type:null,bgm_recommendation:'quiet_focus'},ai_persona:{id:'brainstorm_partner',role:'사고 확장 코치',system_prompt:'기존 관점에서 빠진 질문·반론·검증 기준을 제안합니다.'}};
-  }
-  function normalizeSchema(raw,fallback){
-    raw=raw&&typeof raw==='object'?raw:{};fallback=fallback||schemaForRoom(dynamicSpaceId);
-    const study=ALLOWED_STUDY_TYPES.includes(raw.study_type)?raw.study_type:fallback.study_type;
-    const layout=ALLOWED_LAYOUTS.includes(raw.layout_mode)?raw.layout_mode:fallback.layout_mode;
-    const at=raw.active_tools&&typeof raw.active_tools==='object'?raw.active_tools:{};
-    const ap=raw.ai_persona&&typeof raw.ai_persona==='object'?raw.ai_persona:{};
-    return {study_type:study,layout_mode:layout,active_tools:{code_editor:Boolean(at.code_editor??fallback.active_tools.code_editor),terminal:Boolean(at.terminal??fallback.active_tools.terminal),timer_type:(typeof at.timer_type==='string'||at.timer_type===null)?at.timer_type:fallback.active_tools.timer_type,bgm_recommendation:(typeof at.bgm_recommendation==='string'||at.bgm_recommendation===null)?at.bgm_recommendation:fallback.active_tools.bgm_recommendation},ai_persona:{id:ALLOWED_PERSONAS.includes(ap.id)?ap.id:(fallback.ai_persona.id||'brainstorm_partner'),role:String(ap.role||fallback.ai_persona.role).slice(0,90),system_prompt:String(ap.system_prompt||fallback.ai_persona.system_prompt).slice(0,500)}};
-  }
   function localIntentParser(prompt,context,useMaterialForDesign=false){
     const q=(prompt||'').toLowerCase();const ext=useMaterialForDesign?(context?.name||'').split('.').pop().toLowerCase():'';
-    let mode='brainstorm';
-    if(/^\/mode\s+(split|coding|code|split_view)/i.test(prompt)||/(코드|코딩|디버그|debug|review|리뷰|javascript|python|\.js|\.py)/i.test(q)||['js','jsx','ts','tsx','py','json','csv'].includes(ext))mode='coding';
-    else if(/^\/mode\s+(conversation|speak|roleplay)/i.test(prompt)||/(비즈니스\s*영어|영어\s*회화|외국어\s*말하기|회화|말하기|롤플레이|role.?play|conversation|interview|면접|미팅|회의|협상|전화\s*영어)/i.test(q))mode='conversation';
-    else if(/^\/mode\s+(flash|flashcard|recall|quiz)/i.test(prompt)||/(퀴즈|암기|회상|플래시|문제.*내|시험.*모드|빈칸)/i.test(q))mode='recall';
-    else if(/^\/mode\s+(reader|reading|focus_reader)/i.test(prompt)||/(논문|독해|읽기|원문|pdf|문서.*요약|3줄 요약)/i.test(q)||ext==='pdf')mode='reading';
-    else if(/^\/mode\s+(canvas|brainstorm)/i.test(prompt)||/(브레인스토밍|아이디어|기획|마인드맵|노드|캔버스)/i.test(q))mode='brainstorm';
-    if(mode==='coding')return schemaForRoom('coding');if(mode==='conversation')return schemaForRoom('language');if(mode==='recall')return schemaForRoom('memory');if(mode==='reading')return schemaForRoom('paper');return schemaForRoom('teach');
+    if(/코드|코딩|디버그|debug|review|리뷰|javascript|python|\.js|\.py/i.test(q)||['js','jsx','ts','tsx','py','json','csv'].includes(ext))return manifestForRoom('coding');
+    if(/비즈니스\s*영어|영어\s*회화|외국어\s*말하기|회화|말하기|롤플레이|role.?play|conversation|interview|면접|미팅|회의|협상|전화\s*영어/i.test(q))return manifestForRoom('language');
+    if(/퀴즈|암기|회상|플래시|문제.*내|시험.*모드|빈칸/i.test(q))return manifestForRoom('memory');
+    if(/논문|독해|읽기|원문|pdf|문서.*요약|3줄 요약/i.test(q)||ext==='pdf')return manifestForRoom('paper');
+    return manifestForRoom('teach');
   }
   function contextExcerpt(limit=12000){return String(dynamicContext.text||'').slice(0,limit)}
-  async function requestIntentSchema(prompt,{preview=false,roomModification=false,useMaterialForDesign=false}={}){
+  async function requestSceneManifest(prompt,{preview=false,roomModification=false,useMaterialForDesign=false}={}){
     const fallback=localIntentParser(prompt,dynamicContext,useMaterialForDesign);
     try{
-      const result=await apiFetch(STUDYWORLD_SETTINGS.endpoints.studyIntent,{method:'POST',timeoutMs:STUDYWORLD_SETTINGS.aiRequestTimeoutMs,body:JSON.stringify({protocol_version:'1.1',spaceId:preview?null:(activeStudySpaceId||null),prompt,roomModification:Boolean(roomModification&&!preview&&activeStudySpaceId),context:{file_name:dynamicContext.name,file_type:dynamicContext.type,has_text:Boolean(dynamicContext.text),text:contextExcerpt()},design_recommendation_requested:Boolean(useMaterialForDesign),current_schema:dynamicSchema})});
+      const result=await apiFetch(STUDYWORLD_SETTINGS.endpoints.studyIntent,{method:'POST',timeoutMs:STUDYWORLD_SETTINGS.aiRequestTimeoutMs,body:JSON.stringify({protocol_version:'2.0',spaceId:preview?null:(activeStudySpaceId||null),prompt,roomModification:Boolean(roomModification&&!preview&&activeStudySpaceId),context:{file_name:dynamicContext.name,file_type:dynamicContext.type,has_text:Boolean(dynamicContext.text),text:contextExcerpt()},design_recommendation_requested:Boolean(useMaterialForDesign),current_manifest:roomManifest})});
       lastAiMeta=result?.meta||null;lastRoomModificationUsage=result?.usage||null;engineSource=result?.meta?.fallback?'안전 기본 구성':`${String(result?.meta?.provider||'AI').toUpperCase()} · ${result?.meta?.model||'MODEL'}`;
-      return normalizeSchema(result.schema||result,fallback);
-    }catch(_error){lastAiMeta={fallback:true,errorCode:'NETWORK_OR_API'};lastRoomModificationUsage=null;engineSource='안전 기본 구성';return normalizeSchema(fallback,fallback)}
+      return normalizeSceneManifest(result.manifest||result.schema||result,fallback);
+    }catch(_error){lastAiMeta={fallback:true,errorCode:'NETWORK_OR_API'};lastRoomModificationUsage=null;engineSource='안전 기본 구성';return normalizeSceneManifest(fallback,fallback)}
   }
 
+  function hasSceneComponent(id){return Boolean(roomManifest?.scene?.components?.includes(id))}
   function captureWorkspace(){
-    if(!dynamicSchema)return;const current=getSpaceState().workspace;const patch={};
-    if(dynamicSchema.layout_mode==='split_view'){if(!dynamicContext.ephemeral)patch.code=document.querySelector('#dynCodeEditor')?.value??current.code;patch.reviewRequest=document.querySelector('#dynReviewRequest')?.value??current.reviewRequest}
-    if(dynamicSchema.layout_mode==='flashcard')patch.recallDraft=document.querySelector('#dynRecallDraft')?.value??current.recallDraft;
-    if(dynamicSchema.layout_mode==='focus_reader'){patch.readerNotes=document.querySelector('#dynReaderNotes')?.value??current.readerNotes;const f=document.querySelector('.dyn-reader-paragraph.is-focused');if(f)patch.focusParagraph=Number(f.dataset.index||0)}
-    setSpaceState({workspace:patch,schema:dynamicSchema,context:{name:dynamicContext.name,type:dynamicContext.type,source:dynamicContext.source,ephemeral:dynamicContext.ephemeral,updatedAt:dynamicContext.updatedAt}});
+    if(!roomManifest)return;const current=getSpaceState().workspace;const patch={};
+    if(hasSceneComponent('code_editor')){if(!dynamicContext.ephemeral)patch.code=document.querySelector('#dynCodeEditor')?.value??current.code;patch.reviewRequest=document.querySelector('#dynReviewRequest')?.value??current.reviewRequest}
+    if(hasSceneComponent('recall_draft'))patch.recallDraft=document.querySelector('#dynRecallDraft')?.value??current.recallDraft;
+    if(hasSceneComponent('field_notes')){patch.readerNotes=document.querySelector('#dynReaderNotes')?.value??current.readerNotes;const f=document.querySelector('.dyn-reader-paragraph.is-focused');if(f)patch.focusParagraph=Number(f.dataset.index||0)}
+    setSpaceState({workspace:patch,manifest:roomManifest,context:{name:dynamicContext.name,type:dynamicContext.type,source:dynamicContext.source,ephemeral:dynamicContext.ephemeral,updatedAt:dynamicContext.updatedAt}});
   }
   function escapeDyn(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  function schemaLabel(s){return ({split_view:'코드·데이터 학습',flashcard:'회상·퀴즈 학습',canvas:'아이디어 정리',focus_reader:'집중 읽기',conversation:'실전 회화'})[s.layout_mode]||'맞춤 학습'}
-  function updateProtocolUI(){
-    const frame=document.querySelector('#runtimeArea');if(frame)frame.dataset.studyMode=dynamicSchema?.study_type||'';
-  }
+  function manifestLabel(manifest){return ({code_workbench:'코드 실험실',recall_deck:'기억 훈련실',idea_canvas:'아이디어 필드',focus_reader:'집중 아카이브',dialogue_stage:'역할극 공간'})[manifest?.scene?.engine_id]||'맞춤 학습 공간'}
+  function updateRuntimeMetadata(){const frame=document.querySelector('#runtimeArea');if(frame){frame.dataset.studyMode=roomManifest?.activity||'';frame.dataset.engineId=roomManifest?.scene?.engine_id||'';frame.dataset.environment=roomManifest?.scene?.environment||''}}
   function loadLocalActionCatalog(){
     if(localActionLoadPromise)return localActionLoadPromise;
     localActionLoadPromise=fetch(LOCAL_ACTIONS_URL,{cache:'force-cache'}).then(r=>r.ok?r.json():Promise.reject(new Error('local action data unavailable'))).then(data=>{if(data&&typeof data==='object')localActionCatalog={...LOCAL_ACTION_FALLBACK,...data};return localActionCatalog}).catch(()=>localActionCatalog);
     return localActionLoadPromise;
   }
-  function localModeConfig(){return localActionCatalog?.[dynamicSchema?.study_type]||LOCAL_ACTION_FALLBACK[dynamicSchema?.study_type]||LOCAL_ACTION_FALLBACK.brainstorm}
+  function localModeConfig(){return localActionCatalog?.[roomManifest?.activity]||LOCAL_ACTION_FALLBACK[roomManifest?.activity]||LOCAL_ACTION_FALLBACK.brainstorm}
   function personaVisual(){
     const map={code_coach:{avatar:'🧙‍♂️',name:'코드 가이드'},recall_coach:{avatar:'🦉',name:'기억 수호자'},reading_guide:{avatar:'🧚',name:'근거 안내자'},brainstorm_partner:{avatar:'🧭',name:'탐험 동료'},conversation_coach:{avatar:'🧑‍🚀',name:'대화 파트너'}};
-    return map[dynamicSchema?.ai_persona?.id]||{avatar:'✦',name:'학습 동료'};
+    return map[roomManifest?.persona?.id]||{avatar:'✦',name:'학습 동료'};
   }
   function localFlashcards(){const ss=String(dynamicContext.text||'').replace(/\s+/g,' ').split(/(?<=[.!?。])\s+/).filter(s=>s.length>18).slice(0,5);return (ss.length?ss:['핵심 개념을 자신의 말로 설명해보세요.','가장 중요한 근거는 무엇인가요?','이 내용을 다른 상황에 어떻게 적용할까요?']).map((s,i)=>({question:`핵심 ${i+1}을 먼저 회상해보세요.`,answer:s.slice(0,220),hint:s.slice(0,60)}))}
   function activeFlashcards(work){return Array.isArray(work.aiFlashcards)&&work.aiFlashcards.length?work.aiFlashcards:localFlashcards()}
   function readerParagraphs(){const t=String(dynamicContext.text||'').trim();if(t){const arr=t.replace(/\r/g,'').split(/\n{2,}|(?<=[.!?。])\s+/).map(x=>x.trim()).filter(x=>x.length>25).slice(0,20);if(arr.length)return arr}return ['자료가 연결되면 실제 문단을 이 공간에서 집중해서 읽을 수 있어요.','문단을 고르고 주장과 근거를 분리해 보세요.','힌트와 짧은 확인 문제는 로컬 학습 데이터에서 즉시 제공됩니다.']}
   function roomIdentity(){const r=rooms[dynamicSpaceId]||rooms.teach;const meta=activeStudySpaceMeta||resolveStudySpaceMeta(activeStudySpaceId);return {icon:r.icon,title:meta?.title||r.title,goal:meta?.prompt||meta?.description||r.desc}}
-  function actionChipsHTML(work){
-    const timer=dynamicSchema.active_tools?.timer_type?`<button type="button" class="dyn-action-chip" id="dynTimerToggle">◷ <span id="dynTimerValue">25:00</span></button>`:'';
-    const conversation=dynamicSchema.study_type==='conversation'?'<button type="button" class="dyn-action-chip" data-local-action="reply">💬 이어 말하기</button>':'';
-    return `<div class="dyn-action-dock" role="toolbar" aria-label="학습 행동"><button type="button" class="dyn-action-chip" data-local-action="hint">💡 힌트</button><button type="button" class="dyn-action-chip" data-local-action="quiz">◇ 퀴즈</button>${conversation}${timer}</div>`;
+  function actionChipsHTML(){
+    const chips={hint:'💡 힌트',quiz:'◇ 퀴즈',reply:'💬 이어 말하기'};
+    const actions=(roomManifest?.interactions||[]).filter(id=>INTERACTION_IDS.includes(id)).map(id=>`<button type="button" class="dyn-action-chip" data-runtime-action="local.${id}">${chips[id]}</button>`).join('');
+    const timer=roomManifest?.capabilities?.timer_type?`<button type="button" class="dyn-action-chip" id="dynTimerToggle" data-runtime-action="timer.toggle">◷ <span id="dynTimerValue">25:00</span></button>`:'';
+    return `<div class="dyn-action-dock" role="toolbar" aria-label="학습 행동">${actions}${timer}</div>`;
   }
-  function localQuizHTML(work){const quiz=work.localQuiz;if(!quiz)return '';const answered=Number.isInteger(quiz.selected);return `<section class="dyn-local-quiz" aria-live="polite"><small>FIELD QUIZ · LOCAL</small><strong>${escapeDyn(quiz.question||'')}</strong><div>${(quiz.options||[]).map((opt,i)=>`<button type="button" data-local-quiz-option="${i}" class="${answered?(i===quiz.answer?'is-correct':i===quiz.selected?'is-wrong':''):''}" ${answered?'disabled':''}>${escapeDyn(opt)}</button>`).join('')}</div>${answered?`<p>${escapeDyn(quiz.explanation||'')}</p>`:''}</section>`}
+  function localQuizHTML(work){const quiz=work.localQuiz;if(!quiz)return '';const answered=Number.isInteger(quiz.selected);return `<section class="dyn-local-quiz" aria-live="polite"><small>FIELD QUIZ · LOCAL</small><strong>${escapeDyn(quiz.question||'')}</strong><div>${(quiz.options||[]).map((opt,i)=>`<button type="button" data-runtime-action="quiz.answer" data-runtime-value="${i}" class="${answered?(i===quiz.answer?'is-correct':i===quiz.selected?'is-wrong':''):''}" ${answered?'disabled':''}>${escapeDyn(opt)}</button>`).join('')}</div>${answered?`<p>${escapeDyn(quiz.explanation||'')}</p>`:''}</section>`}
   function diegeticNpcHTML(work){const p=personaVisual(),cfg=localModeConfig();const message=work.diegeticMessage||cfg.intro||'필요할 때 내가 여기서 바로 말해줄게.';return `<div class="dyn-diegetic-npc" aria-live="polite"><div class="dyn-npc-character" aria-hidden="true"><span>${p.avatar}</span><i></i></div><div class="dyn-npc-speech"><small>${escapeDyn(p.name)}</small><p>${escapeDyn(message)}</p></div></div>`}
-  function immersiveHUDHTML(){const room=roomIdentity();return `<div class="dyn-room-identity"><span>${escapeDyn(room.icon)}</span><div><small>${escapeDyn(schemaLabel(dynamicSchema))}</small><strong>${escapeDyn(room.title)}</strong></div></div><div class="dyn-room-exit"><span class="runtime-visit-time" id="runtimeVisitTime" aria-live="polite">체류 00:00</span><button type="button" id="runtimeBack" aria-label="스터디룸 나가기">↗ 나가기</button></div>`}
-  function renderSplit(work){
+  function immersiveHUDHTML(){const room=roomIdentity();return `<div class="dyn-room-identity"><span>${escapeDyn(room.icon)}</span><div><small>${escapeDyn(manifestLabel(roomManifest))}</small><strong>${escapeDyn(room.title)}</strong></div></div><div class="dyn-room-exit"><span class="runtime-visit-time" id="runtimeVisitTime" aria-live="polite">체류 00:00</span><button type="button" id="runtimeBack" data-runtime-action="room.exit" aria-label="스터디룸 나가기">↗ 나가기</button></div>`}
+
+  function renderCodeWorkbench(work){
     const code=transientCode||(dynamicContext.ephemeral&&dynamicContext.text?dynamicContext.text:(work.code||defaultWorkspace().code));
-    return `<div class="dyn-split immersive-split"><section class="dyn-editor-pane"><div class="dyn-pane-bar"><strong>${escapeDyn(dynamicContext.name||'workspace.js')}</strong><span>WORKBENCH</span></div><textarea class="dyn-code-editor" id="dynCodeEditor" spellcheck="false">${escapeDyn(code)}</textarea><div class="dyn-editor-actions"><button type="button" id="dynRunCode">✓ 빠른 정적 체크</button></div></section><aside class="dyn-side-pane"><div class="dyn-terminal" id="dynTerminal"><b>STATIC CHECK · 실제 실행 아님</b>${(work.terminal||[]).map(x=>`<div>${escapeDyn(x)}</div>`).join('')}</div><div class="dyn-environment-prop"><small>MISSION BOARD</small><strong>직접 실행 → 실패 조건 확인 → 한 단계 수정</strong><p>시스템 프롬프트 대신 장면 속 행동으로 학습을 이어갑니다.</p></div></aside></div>`;
+    const editor=hasSceneComponent('code_editor')?`<section class="dyn-editor-pane"><div class="dyn-pane-bar"><strong>${escapeDyn(dynamicContext.name||'workspace.js')}</strong><span>WORKBENCH</span></div><textarea class="dyn-code-editor" id="dynCodeEditor" data-runtime-input="workspace.code" spellcheck="false">${escapeDyn(code)}</textarea><div class="dyn-editor-actions"><button type="button" data-runtime-action="code.static_check">✓ 빠른 정적 체크</button></div></section>`:'';
+    const terminal=hasSceneComponent('static_terminal')?`<div class="dyn-terminal" id="dynTerminal"><b>STATIC CHECK · 실제 실행 아님</b>${(work.terminal||[]).map(x=>`<div>${escapeDyn(x)}</div>`).join('')}</div>`:'';
+    const mission=hasSceneComponent('mission_board')?'<div class="dyn-environment-prop"><small>MISSION BOARD</small><strong>직접 실행 → 실패 조건 확인 → 한 단계 수정</strong><p>시스템 프롬프트 대신 장면 속 행동으로 학습을 이어갑니다.</p></div>':'';
+    return `<div class="dyn-split immersive-split">${editor}<aside class="dyn-side-pane">${terminal}${mission}</aside></div>`;
   }
-  function renderFlash(work){
+  function renderRecallDeck(work){
     const cards=activeFlashcards(work);const idx=Math.max(0,Math.min(Number(work.flashIndex||0),cards.length-1));const card=cards[idx];const revealed=Boolean(work.flashRevealed);const hintVisible=Boolean(work.flashHintVisible);
-    return `<div class="dyn-flash-layout immersive-flash"><main class="dyn-flash-main"><div class="dyn-flash-stack"><div class="dyn-flash-progress"><span>MEMORY DECK · ${idx+1}/${cards.length}</span></div><button class="dyn-flash-card" id="dynFlashCard" type="button"><small>${revealed?'ANSWER':'RECALL FIRST'}</small><div><strong>${escapeDyn(revealed?card.answer:card.question)}</strong>${revealed?'<p>내 기억과 비교하고 다음 카드를 평가해보세요.</p>':(hintVisible?`<p>힌트 · ${escapeDyn(card.hint||'핵심 용어부터 떠올려보세요.')}</p>`:'<p>답을 보기 전에 기억에서 먼저 꺼내보세요.</p>')}</div></button><input class="dyn-flash-answer" id="dynRecallDraft" value="${escapeDyn(work.recallDraft||'')}" placeholder="머릿속에서 꺼낸 내용을 기록해보세요"><div class="dyn-flash-buttons"><button type="button" data-flash-grade="again">다시</button><button type="button" data-flash-grade="hard">어려움</button><button type="button" data-flash-grade="know">알겠음 →</button></div></div></main><aside class="dyn-recall-rail"><small>MEMORY MAP</small><div class="dyn-recall-stat"><div><small>현재 카드</small><strong>${idx+1}</strong></div><div><small>총 카드</small><strong>${cards.length}</strong></div><div><small>힌트 비용</small><strong>LOCAL</strong></div></div></aside></div>`;
+    const cardView=hasSceneComponent('recall_card')?`<button class="dyn-flash-card" data-runtime-action="recall.toggle" type="button"><small>${revealed?'ANSWER':'RECALL FIRST'}</small><div><strong>${escapeDyn(revealed?card.answer:card.question)}</strong>${revealed?'<p>내 기억과 비교하고 다음 카드를 평가해보세요.</p>':(hintVisible?`<p>힌트 · ${escapeDyn(card.hint||'핵심 용어부터 떠올려보세요.')}</p>`:'<p>답을 보기 전에 기억에서 먼저 꺼내보세요.</p>')}</div></button>`:'';
+    const draft=hasSceneComponent('recall_draft')?`<input class="dyn-flash-answer" id="dynRecallDraft" data-runtime-input="workspace.recall_draft" value="${escapeDyn(work.recallDraft||'')}" placeholder="머릿속에서 꺼낸 내용을 기록해보세요">`:'';
+    const memoryMap=hasSceneComponent('memory_map')?`<aside class="dyn-recall-rail"><small>MEMORY MAP</small><div class="dyn-recall-stat"><div><small>현재 카드</small><strong>${idx+1}</strong></div><div><small>총 카드</small><strong>${cards.length}</strong></div><div><small>힌트 비용</small><strong>LOCAL</strong></div></div></aside>`:'';
+    return `<div class="dyn-flash-layout immersive-flash"><main class="dyn-flash-main"><div class="dyn-flash-stack"><div class="dyn-flash-progress"><span>MEMORY DECK · ${idx+1}/${cards.length}</span></div>${cardView}${draft}<div class="dyn-flash-buttons"><button type="button" data-runtime-action="recall.grade" data-runtime-value="again">다시</button><button type="button" data-runtime-action="recall.grade" data-runtime-value="hard">어려움</button><button type="button" data-runtime-action="recall.grade" data-runtime-value="know">알겠음 →</button></div></div></main>${memoryMap}</div>`;
   }
-  function renderCanvas(work){
+  function renderIdeaCanvas(work){
     const nodes=(work.canvasNodes&&work.canvasNodes.length?work.canvasNodes:defaultWorkspace().canvasNodes);
-    return `<div class="dyn-canvas-layout immersive-canvas"><section class="dyn-canvas-stage" id="dynCanvasStage"><svg class="dyn-node-lines" id="dynNodeLines" aria-hidden="true"></svg><div class="dyn-canvas-toolbar"><button type="button" id="dynAddNode">＋ 노드</button></div>${nodes.map(n=>`<div class="dyn-node-card" data-node-id="${escapeDyn(n.id)}" style="left:${Number(n.x)||80}px;top:${Number(n.y)||100}px"><small>IDEA NODE</small><div>${escapeDyn(n.text)}</div></div>`).join('')}</section></div>`;
+    if(!hasSceneComponent('idea_nodes'))return '<div class="dyn-canvas-layout immersive-canvas"></div>';
+    return `<div class="dyn-canvas-layout immersive-canvas"><section class="dyn-canvas-stage" id="dynCanvasStage"><svg class="dyn-node-lines" id="dynNodeLines" aria-hidden="true"></svg><div class="dyn-canvas-toolbar"><button type="button" data-runtime-action="canvas.add_node">＋ 노드</button></div>${nodes.map(n=>`<div class="dyn-node-card" data-node-id="${escapeDyn(n.id)}" style="left:${Number(n.x)||80}px;top:${Number(n.y)||100}px"><small>IDEA NODE</small><div>${escapeDyn(n.text)}</div></div>`).join('')}</section></div>`;
   }
-  function renderReader(work){
+  function renderFocusReader(work){
     const paras=readerParagraphs();const focus=Math.max(0,Math.min(Number(work.focusParagraph||0),paras.length-1));
-    return `<div class="dyn-reader-layout immersive-reader"><section class="dyn-reader-doc"><article class="dyn-reader-page is-focus" id="dynReaderPage"><h2>${escapeDyn(dynamicContext.name||'Focus Reader')}</h2><div class="dyn-reader-byline">SOURCE DOCUMENT · 문단을 눌러 초점을 이동하세요.</div>${paras.map((p,i)=>`<p class="dyn-reader-paragraph ${i===focus?'is-focused':''}" data-index="${i}">${escapeDyn(p)}</p>`).join('')}</article></section><aside class="dyn-reader-rail"><small>FIELD NOTES</small><textarea class="dyn-reader-notes" id="dynReaderNotes" placeholder="읽으면서 남길 나의 노트">${escapeDyn(work.readerNotes||'')}</textarea></aside></div>`;
+    const documentView=hasSceneComponent('reader_document')?`<section class="dyn-reader-doc"><article class="dyn-reader-page is-focus" id="dynReaderPage"><h2>${escapeDyn(dynamicContext.name||'Focus Reader')}</h2><div class="dyn-reader-byline">SOURCE DOCUMENT · 문단을 눌러 초점을 이동하세요.</div>${paras.map((p,i)=>`<p class="dyn-reader-paragraph ${i===focus?'is-focused':''}" data-runtime-action="reader.focus" data-runtime-value="${i}" tabindex="0">${escapeDyn(p)}</p>`).join('')}</article></section>`:'';
+    const notes=hasSceneComponent('field_notes')?`<aside class="dyn-reader-rail"><small>FIELD NOTES</small><textarea class="dyn-reader-notes" id="dynReaderNotes" data-runtime-input="workspace.reader_notes" placeholder="읽으면서 남길 나의 노트">${escapeDyn(work.readerNotes||'')}</textarea></aside>`:'';
+    return `<div class="dyn-reader-layout immersive-reader">${documentView}${notes}</div>`;
   }
-  function renderConversation(work){
+  function renderDialogueStage(work){
     const cfg=localModeConfig();const step=Number(work.localConversationStep||0);const replies=Array.isArray(cfg.replies)?cfg.replies:[];const meta=activeStudySpaceMeta||(activeStudySpaceId?studySpaceMetaById.get(activeStudySpaceId):null);const goal=meta?.prompt||'상황에 맞는 표현을 선택하며 대화를 이어갑니다.';
-    return `<div class="dyn-conversation-layout immersive-conversation"><section class="dyn-conversation-main"><div class="dyn-conversation-head"><small>ROLEPLAY ZONE</small><strong>${escapeDyn(meta?.title||'실전 회화')}</strong><p>${escapeDyn(goal)}</p></div><div class="dyn-conversation-stage"><div class="dyn-scene-counter"><span>대화 단계</span><strong>${step+1}</strong></div><div class="dyn-local-dialogue-options">${replies.map((reply,i)=>`<button type="button" data-local-reply="${i}">${escapeDyn(reply)}</button>`).join('')}</div></div></section></div>`;
+    const choices=hasSceneComponent('dialogue_choices')?`<div class="dyn-local-dialogue-options">${replies.map((reply,i)=>`<button type="button" data-runtime-action="conversation.choice" data-runtime-value="${i}">${escapeDyn(reply)}</button>`).join('')}</div>`:'';
+    return `<div class="dyn-conversation-layout immersive-conversation"><section class="dyn-conversation-main"><div class="dyn-conversation-head"><small>ROLEPLAY ZONE</small><strong>${escapeDyn(meta?.title||'실전 회화')}</strong><p>${escapeDyn(goal)}</p></div><div class="dyn-conversation-stage"><div class="dyn-scene-counter"><span>대화 단계</span><strong>${step+1}</strong></div>${choices}</div></section></div>`;
   }
-  function renderDynamicLayout(){
-    const stateNow=getSpaceState();const work={...defaultWorkspace(),...(stateNow.workspace||{})};const frame=document.querySelector('#runtimeArea');if(!frame)return;const body=dynamicSchema.layout_mode==='split_view'?renderSplit(work):dynamicSchema.layout_mode==='flashcard'?renderFlash(work):dynamicSchema.layout_mode==='canvas'?renderCanvas(work):dynamicSchema.layout_mode==='conversation'?renderConversation(work):renderReader(work);
-    frame.innerHTML=`<div class="dynamic-space-shell immersive-space-shell">${immersiveHUDHTML()}<section class="dynamic-layout-frame">${body}${diegeticNpcHTML(work)}${localQuizHTML(work)}</section>${actionChipsHTML(work)}</div>`;bindDynamicLayout(work);updateTimerUI();syncRuntimeBackButton();paintRoomVisitTime();
+
+  function renderStudyRuntime(){
+    const stateNow=getSpaceState();const work={...defaultWorkspace(),...(stateNow.workspace||{})};const frame=document.querySelector('#runtimeArea');if(!frame||!roomManifest)return;
+    studyRuntime.render({root:frame,manifest:roomManifest,context:{work},decorate:(sceneHtml)=>`<div class="dynamic-space-shell immersive-space-shell">${immersiveHUDHTML()}<section class="dynamic-layout-frame">${sceneHtml}${diegeticNpcHTML(work)}${localQuizHTML(work)}</section>${actionChipsHTML()}</div>`});
+    updateRuntimeMetadata();updateTimerUI();syncRuntimeBackButton();paintRoomVisitTime();
   }
   function nextLocalItem(type,items,work){const list=Array.isArray(items)?items:[];if(!list.length)return null;const cursor={...(work.localActionCursor||{})};const idx=Number(cursor[type]||0)%list.length;cursor[type]=idx+1;return {item:list[idx],cursor}}
   function performLocalAction(type){
     const work={...defaultWorkspace(),...(getSpaceState().workspace||{})};const cfg=localModeConfig();
     if(type==='hint'){
-      if(dynamicSchema.study_type==='recall'){const cards=activeFlashcards(work),idx=Math.max(0,Math.min(Number(work.flashIndex||0),cards.length-1)),hint=cards[idx]?.hint;if(hint){setSpaceState({workspace:{diegeticMessage:`힌트: ${hint}`,flashHintVisible:true}});recordLearningEvent('tool_used',{mode:dynamicSchema.study_type,metadata:{action:'local_hint',source:'static_json'}});renderDynamicLayout();return}}
-      const next=nextLocalItem('hint',cfg.hint,work);if(!next)return;setSpaceState({workspace:{diegeticMessage:next.item,localActionCursor:next.cursor,localQuiz:null}});recordLearningEvent('tool_used',{mode:dynamicSchema.study_type,metadata:{action:'local_hint',source:'static_json'}});renderDynamicLayout();return;
+      if(roomManifest.activity==='recall'){const cards=activeFlashcards(work),idx=Math.max(0,Math.min(Number(work.flashIndex||0),cards.length-1)),hint=cards[idx]?.hint;if(hint){setSpaceState({workspace:{diegeticMessage:`힌트: ${hint}`,flashHintVisible:true}});recordLearningEvent('tool_used',{mode:roomManifest.activity,metadata:{action:'hint',source:'static_json'}});renderStudyRuntime();return}}
+      const next=nextLocalItem('hint',cfg.hint,work);if(!next)return;setSpaceState({workspace:{diegeticMessage:next.item,localActionCursor:next.cursor,localQuiz:null}});recordLearningEvent('tool_used',{mode:roomManifest.activity,metadata:{action:'hint',source:'static_json'}});renderStudyRuntime();return;
     }
     if(type==='quiz'){
-      const next=nextLocalItem('quiz',cfg.quiz,work);if(!next)return;setSpaceState({workspace:{diegeticMessage:'좋아. 짧은 확인 문제를 풀어보자.',localActionCursor:next.cursor,localQuiz:{...next.item,selected:null}}});recordLearningEvent('tool_used',{mode:dynamicSchema.study_type,metadata:{action:'local_quiz',source:'static_json'}});renderDynamicLayout();return;
+      const next=nextLocalItem('quiz',cfg.quiz,work);if(!next)return;setSpaceState({workspace:{diegeticMessage:'좋아. 짧은 확인 문제를 풀어보자.',localActionCursor:next.cursor,localQuiz:{...next.item,selected:null}}});recordLearningEvent('tool_used',{mode:roomManifest.activity,metadata:{action:'local_quiz',source:'static_json'}});renderStudyRuntime();return;
     }
     if(type==='reply'){
-      const replies=Array.isArray(cfg.replies)?cfg.replies:[];if(!replies.length)return;const idx=Number(work.localConversationStep||0)%replies.length;setSpaceState({workspace:{localConversationStep:idx+1,diegeticMessage:`좋아. “${replies[idx]}”처럼 이어가면 자연스러워.`}});recordLearningEvent('tool_used',{mode:'conversation',metadata:{action:'local_reply',source:'static_json'}});renderDynamicLayout();
+      const replies=Array.isArray(cfg.replies)?cfg.replies:[];if(!replies.length)return;const idx=Number(work.localConversationStep||0)%replies.length;setSpaceState({workspace:{localConversationStep:idx+1,diegeticMessage:`좋아. “${replies[idx]}”처럼 이어가면 자연스러워.`}});recordLearningEvent('tool_used',{mode:'conversation',metadata:{action:'local_reply',source:'static_json'}});renderStudyRuntime();
     }
   }
-  function answerLocalQuiz(index){const work={...defaultWorkspace(),...(getSpaceState().workspace||{})},quiz=work.localQuiz;if(!quiz||Number.isInteger(quiz.selected))return;const selected=Number(index),correct=selected===Number(quiz.answer);setSpaceState({workspace:{localQuiz:{...quiz,selected},diegeticMessage:correct?`좋아. ${quiz.explanation||''}`:`조금 달라. ${quiz.explanation||''}`}});recordLearningEvent('tool_used',{mode:dynamicSchema.study_type,metadata:{action:'local_quiz_answer',correct,source:'static_json'}});renderDynamicLayout()}
+  function answerLocalQuiz(index){const work={...defaultWorkspace(),...(getSpaceState().workspace||{})},quiz=work.localQuiz;if(!quiz||Number.isInteger(quiz.selected))return;const selected=Number(index),correct=selected===Number(quiz.answer);setSpaceState({workspace:{localQuiz:{...quiz,selected},diegeticMessage:correct?`좋아. ${quiz.explanation||''}`:`조금 달라. ${quiz.explanation||''}`}});recordLearningEvent('tool_used',{mode:roomManifest.activity,metadata:{action:'local_quiz_answer',correct,source:'static_json'}});renderStudyRuntime()}
 
   function drawCanvasLines(){const stage=document.querySelector('#dynCanvasStage'),svg=document.querySelector('#dynNodeLines');if(!stage||!svg)return;const cards=[...stage.querySelectorAll('.dyn-node-card')];const sr=stage.getBoundingClientRect();svg.innerHTML='';for(let i=0;i<cards.length-1;i++){const a=cards[i].getBoundingClientRect(),b=cards[i+1].getBoundingClientRect();const x1=a.left-sr.left+a.width/2,y1=a.top-sr.top+a.height/2,x2=b.left-sr.left+b.width/2,y2=b.top-sr.top+b.height/2;svg.insertAdjacentHTML('beforeend',`<path d="M ${x1} ${y1} C ${(x1+x2)/2} ${y1}, ${(x1+x2)/2} ${y2}, ${x2} ${y2}" fill="none" stroke="rgba(72,111,91,.42)" stroke-width="2" stroke-dasharray="6 6"/>`)}}
   function saveCanvasPositions(){const cards=[...document.querySelectorAll('.dyn-node-card')];if(!cards.length)return;const nodes=cards.map(c=>({id:c.dataset.nodeId,x:parseFloat(c.style.left)||0,y:parseFloat(c.style.top)||0,text:c.querySelector('div')?.textContent||'아이디어'}));setSpaceState({workspace:{canvasNodes:nodes}})}
   function bindCanvasDrag(){const stage=document.querySelector('#dynCanvasStage');if(!stage)return;stage.querySelectorAll('.dyn-node-card').forEach(card=>{card.addEventListener('pointerdown',e=>{if(e.button!==undefined&&e.button!==0)return;const r=card.getBoundingClientRect(),sr=stage.getBoundingClientRect();canvasDrag={card,stage,offsetX:e.clientX-r.left,offsetY:e.clientY-r.top,sr};card.setPointerCapture?.(e.pointerId);e.preventDefault()});card.addEventListener('pointermove',e=>{if(!canvasDrag||canvasDrag.card!==card)return;const maxX=stage.clientWidth-card.offsetWidth,maxY=stage.clientHeight-card.offsetHeight;card.style.left=Math.max(0,Math.min(maxX,e.clientX-canvasDrag.sr.left-canvasDrag.offsetX))+'px';card.style.top=Math.max(0,Math.min(maxY,e.clientY-canvasDrag.sr.top-canvasDrag.offsetY))+'px';drawCanvasLines();e.preventDefault()});card.addEventListener('pointerup',()=>{if(canvasDrag?.card===card){canvasDrag=null;saveCanvasPositions()}})});requestAnimationFrame(drawCanvasLines)}
 
-  function bindDynamicLayout(work){
-    document.querySelector('#runtimeBack')?.addEventListener('click',()=>returnFromRuntime());
-    document.querySelectorAll('[data-local-action]').forEach(btn=>btn.addEventListener('click',()=>performLocalAction(btn.dataset.localAction)));
-    document.querySelectorAll('[data-local-quiz-option]').forEach(btn=>btn.addEventListener('click',()=>answerLocalQuiz(btn.dataset.localQuizOption)));
-    document.querySelectorAll('[data-local-reply]').forEach(btn=>btn.addEventListener('click',()=>{const cfg=localModeConfig(),reply=cfg.replies?.[Number(btn.dataset.localReply)]||btn.textContent||'';const w=getSpaceState().workspace;setSpaceState({workspace:{localConversationStep:Number(w.localConversationStep||0)+1,diegeticMessage:`좋아. 그 표현으로 이어가자: ${reply}`}});recordLearningEvent('tool_used',{mode:'conversation',metadata:{action:'local_dialogue_choice',source:'static_json'}});renderDynamicLayout()}));
-    document.querySelector('#dynRunCode')?.addEventListener('click',()=>{const code=document.querySelector('#dynCodeEditor')?.value||'';const checks=[];checks.push(code.trim()?'✓ 코드 텍스트 감지':'! 코드가 비어 있음');checks.push(/[{}()]/.test(code)?'✓ 기본 구문 기호 감지':'! 구문 구조를 확인해보세요');checks.push(/return\b/.test(code)?'✓ return 키워드 감지':'· return 키워드 없음');if(!dynamicContext.ephemeral)setSpaceState({workspace:{code,terminal:['$ static-check',...checks],diegeticMessage:'정적 체크가 끝났어. 실패 표시가 있다면 그 한 줄부터 보자.'}});const terminal=document.querySelector('#dynTerminal');if(terminal)terminal.innerHTML=`<b>STATIC CHECK · 실제 실행 아님</b>${checks.map(x=>`<div>${escapeDyn(x)}</div>`).join('')}`;recordLearningEvent('tool_used',{metadata:{action:'static_check'}})});
-    document.querySelector('#dynFlashCard')?.addEventListener('click',()=>{const s=getSpaceState(),w=s.workspace,draft=document.querySelector('#dynRecallDraft')?.value||'',revealing=!w.flashRevealed;if(revealing)recordLearningEvent('tool_used',{mode:'recall',metadata:{action:'answer_reveal',attempted:Boolean(draft.trim()),hintUsed:Boolean(w.flashHintVisible)}});setSpaceState({workspace:{flashRevealed:!w.flashRevealed,recallDraft:draft}});renderDynamicLayout()});
-    document.querySelectorAll('[data-flash-grade]').forEach(b=>b.addEventListener('click',()=>{const cards=activeFlashcards(getSpaceState().workspace),w=getSpaceState().workspace,draft=document.querySelector('#dynRecallDraft')?.value||w.recallDraft||'';let next=(Number(w.flashIndex||0)+1)%cards.length;if(b.dataset.flashGrade==='again')next=Number(w.flashIndex||0);setSpaceState({workspace:{flashIndex:next,flashRevealed:false,flashHintVisible:false,recallDraft:'',diegeticMessage:b.dataset.flashGrade==='know'?'좋아. 다음 기억 조각으로 이동하자.':'괜찮아. 다시 꺼내보면 더 오래 남아.'}});recordLearningEvent('flash_grade',{mode:'recall',metadata:{grade:b.dataset.flashGrade,attempted:Boolean(draft.trim()),hintUsed:Boolean(w.flashHintVisible)}});renderDynamicLayout()}));
-    bindCanvasDrag();
-    document.querySelector('#dynAddNode')?.addEventListener('click',()=>{const w=getSpaceState().workspace,arr=[...(w.canvasNodes||[])];arr.push({id:'n'+Date.now(),x:80+(arr.length%3)*205,y:380-(arr.length%2)*110,text:'새 아이디어'});setSpaceState({workspace:{canvasNodes:arr,diegeticMessage:'새 노드를 만들었어. 이제 기존 노드 하나와 연결 이유를 붙여봐.'}});renderDynamicLayout()});
-    document.querySelectorAll('.dyn-reader-paragraph').forEach(p=>p.addEventListener('click',()=>{const page=document.querySelector('#dynReaderPage');page?.classList.add('is-focus');document.querySelectorAll('.dyn-reader-paragraph').forEach(x=>x.classList.toggle('is-focused',x===p));setSpaceState({workspace:{focusParagraph:Number(p.dataset.index||0),readerNotes:document.querySelector('#dynReaderNotes')?.value||'',diegeticMessage:'이 문단에서 주장 한 문장과 근거 한 문장을 구분해봐.'}})}));
-    document.querySelector('#dynReaderNotes')?.addEventListener('input',e=>setSpaceState({workspace:{readerNotes:e.target.value}}));
-    document.querySelector('#dynCodeEditor')?.addEventListener('input',e=>{if(dynamicContext.ephemeral)transientCode=e.target.value;else setSpaceState({workspace:{code:e.target.value}})});
-    document.querySelector('#dynRecallDraft')?.addEventListener('input',e=>setSpaceState({workspace:{recallDraft:e.target.value}}));
-    document.querySelector('#dynTimerToggle')?.addEventListener('click',toggleDynamicTimer);
-  }
-
-  function updateTimerUI(){const el=document.querySelector('#dynTimerValue'),btn=document.querySelector('#dynTimerToggle');if(el){const m=Math.floor(dynamicTimer.seconds/60),s=dynamicTimer.seconds%60;el.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}if(btn)btn.textContent=dynamicTimer.running?'정지':'시작'}
+  function updateTimerUI(){const el=document.querySelector('#dynTimerValue'),btn=document.querySelector('#dynTimerToggle');if(el){const m=Math.floor(dynamicTimer.seconds/60),s=dynamicTimer.seconds%60;el.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}if(btn){btn.classList.toggle('is-running',dynamicTimer.running);btn.setAttribute('aria-pressed',dynamicTimer.running?'true':'false')}}
   function toggleDynamicTimer(){dynamicTimer.running=!dynamicTimer.running;if(dynamicTimer.tick)clearInterval(dynamicTimer.tick);if(dynamicTimer.running){recordLearningEvent('tool_used',{metadata:{action:'timer'}});dynamicTimer.startedAt=Date.now();dynamicTimer.tick=setInterval(()=>{dynamicTimer.seconds=Math.max(0,dynamicTimer.seconds-1);updateTimerUI();if(dynamicTimer.seconds<=0){clearInterval(dynamicTimer.tick);dynamicTimer.running=false;recordLearningEvent('session_completed',{durationSeconds:25*60});showToast('포커스 세션이 끝났어요.')}} ,1000)}updateTimerUI()}
+
+  engineRegistry
+    .register('code_workbench',{render:({context})=>renderCodeWorkbench(context.work)})
+    .register('recall_deck',{render:({context})=>renderRecallDeck(context.work)})
+    .register('idea_canvas',{render:({context})=>renderIdeaCanvas(context.work),mount:()=>bindCanvasDrag()})
+    .register('focus_reader',{render:({context})=>renderFocusReader(context.work)})
+    .register('dialogue_stage',{render:({context})=>renderDialogueStage(context.work)});
+
+  interactionRuntime
+    .register('room.exit',()=>returnFromRuntime())
+    .register('local.hint',()=>performLocalAction('hint'))
+    .register('local.quiz',()=>performLocalAction('quiz'))
+    .register('local.reply',()=>performLocalAction('reply'))
+    .register('quiz.answer',({value})=>answerLocalQuiz(value))
+    .register('conversation.choice',({value,element})=>{const cfg=localModeConfig(),reply=cfg.replies?.[Number(value)]||element?.textContent||'';const w=getSpaceState().workspace;setSpaceState({workspace:{localConversationStep:Number(w.localConversationStep||0)+1,diegeticMessage:`좋아. 그 표현으로 이어가자: ${reply}`}});recordLearningEvent('tool_used',{mode:'conversation',metadata:{action:'local_dialogue_choice',source:'static_json'}});renderStudyRuntime()})
+    .register('code.static_check',()=>{const code=document.querySelector('#dynCodeEditor')?.value||'';const checks=[];checks.push(code.trim()?'✓ 코드 텍스트 감지':'! 코드가 비어 있음');checks.push(/[{}()]/.test(code)?'✓ 기본 구문 기호 감지':'! 구문 구조를 확인해보세요');checks.push(/return\b/.test(code)?'✓ return 키워드 감지':'· return 키워드 없음');const workspace={terminal:['$ static-check',...checks],diegeticMessage:'정적 체크가 끝났어. 실패 표시가 있다면 그 한 줄부터 보자.'};if(!dynamicContext.ephemeral)workspace.code=code;setSpaceState({workspace});recordLearningEvent('tool_used',{metadata:{action:'static_check'}});renderStudyRuntime()})
+    .register('recall.toggle',()=>{const w=getSpaceState().workspace,draft=document.querySelector('#dynRecallDraft')?.value||'',revealing=!w.flashRevealed;if(revealing)recordLearningEvent('tool_used',{mode:'recall',metadata:{action:'answer_reveal',attempted:Boolean(draft.trim()),hintUsed:Boolean(w.flashHintVisible)}});setSpaceState({workspace:{flashRevealed:!w.flashRevealed,recallDraft:draft}});renderStudyRuntime()})
+    .register('recall.grade',({value})=>{const cards=activeFlashcards(getSpaceState().workspace),w=getSpaceState().workspace,draft=document.querySelector('#dynRecallDraft')?.value||w.recallDraft||'';let next=(Number(w.flashIndex||0)+1)%cards.length;if(value==='again')next=Number(w.flashIndex||0);setSpaceState({workspace:{flashIndex:next,flashRevealed:false,flashHintVisible:false,recallDraft:'',diegeticMessage:value==='know'?'좋아. 다음 기억 조각으로 이동하자.':'괜찮아. 다시 꺼내보면 더 오래 남아.'}});recordLearningEvent('flash_grade',{mode:'recall',metadata:{grade:value,attempted:Boolean(draft.trim()),hintUsed:Boolean(w.flashHintVisible)}});renderStudyRuntime()})
+    .register('canvas.add_node',()=>{const w=getSpaceState().workspace,arr=[...(w.canvasNodes||[])];arr.push({id:'n'+Date.now(),x:80+(arr.length%3)*205,y:380-(arr.length%2)*110,text:'새 아이디어'});setSpaceState({workspace:{canvasNodes:arr,diegeticMessage:'새 노드를 만들었어. 이제 기존 노드 하나와 연결 이유를 붙여봐.'}});renderStudyRuntime()})
+    .register('reader.focus',({value})=>{setSpaceState({workspace:{focusParagraph:Number(value||0),readerNotes:document.querySelector('#dynReaderNotes')?.value||'',diegeticMessage:'이 문단에서 주장 한 문장과 근거 한 문장을 구분해봐.'}});renderStudyRuntime()})
+    .register('timer.toggle',()=>toggleDynamicTimer())
+    .register('workspace.reader_notes',({value})=>setSpaceState({workspace:{readerNotes:value}}))
+    .register('workspace.code',({value})=>{if(dynamicContext.ephemeral)transientCode=value;else setSpaceState({workspace:{code:value}})})
+    .register('workspace.recall_draft',({value})=>setSpaceState({workspace:{recallDraft:value}}));
 
   async function ensureAiMaterialForLayout(){return null}
   async function applyIntent(prompt,{silent=false,recommendationAccepted=false,roomModification=false,useMaterialForDesign=false}={}){
     const q=(prompt||'').trim();if(!q)return;captureWorkspace();
-    try{const previousMode=dynamicSchema?.study_type||'';const next=await requestIntentSchema(q,{roomModification,useMaterialForDesign});dynamicSchema=next;setSpaceState({schema:next,context:{name:dynamicContext.name,type:dynamicContext.type,source:dynamicContext.source,ephemeral:dynamicContext.ephemeral,updatedAt:dynamicContext.updatedAt}});updateProtocolUI();renderDynamicLayout();const eventType=recommendationAccepted?'recommendation_accepted':(previousMode&&previousMode!==next.study_type?'mode_switched':'mode_selected');recordLearningEvent(eventType,{mode:next.study_type,metadata:{source:lastAiMeta?.fallback?'fallback':'ai'}});if(!silent)showToast(`${schemaLabel(next)} 방식으로 공간을 구성했어요.`)}catch(error){showToast(error?.message||'학습 공간 구성을 처리하지 못했어요.')}
+    try{const previousEngine=roomManifest?.scene?.engine_id||'';const next=await requestSceneManifest(q,{roomModification,useMaterialForDesign});roomManifest=next;setSpaceState({manifest:next,context:{name:dynamicContext.name,type:dynamicContext.type,source:dynamicContext.source,ephemeral:dynamicContext.ephemeral,updatedAt:dynamicContext.updatedAt}});updateRuntimeMetadata();renderStudyRuntime();const eventType=recommendationAccepted?'recommendation_accepted':(previousEngine&&previousEngine!==next.scene.engine_id?'mode_switched':'mode_selected');recordLearningEvent(eventType,{mode:next.activity,metadata:{engine:next.scene.engine_id,source:lastAiMeta?.fallback?'fallback':'ai'}});if(!silent)showToast(`${manifestLabel(next)}으로 공간을 구성했어요.`)}catch(error){showToast(error?.message||'학습 공간 구성을 처리하지 못했어요.')}
   }
   function contextSuggestionFor(file){return {label:`${file.name}을 학습 자료로 연결했어요. 현재 학습방 구성은 그대로 유지됩니다.`,prompt:'이 자료의 내용과 현재 학습 목표를 참고해서 더 잘 맞는 공부 방식을 추천해줘'}}
   async function loadPdfContext(file){const form=new FormData();form.append('file',file);if(activeStudySpaceId)form.append('spaceId',activeStudySpaceId);const result=await apiFetch(STUDYWORLD_SETTINGS.endpoints.studyPdfContext,{method:'POST',timeoutMs:60000,body:form});lastAiMeta=result.meta||null;return {name:result.title||file.name,type:'application/pdf',text:String(result.text||'').slice(0,24000),source:'upload',ephemeral:true,updatedAt:new Date().toISOString()}}
@@ -1340,12 +1420,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#communityCo
   // eslint-disable-next-line no-func-assign
   openRoom=function(key,spaceId=null,meta=null){
     if(!rooms[key])key='teach';if(state.view!=='runtime')roomReturnContext=captureRoomReturnContext();captureWorkspace();lastRoomModificationUsage=null;activeStudySpaceId=spaceId||null;activeStudySpaceMeta=resolveStudySpaceMeta(spaceId,meta);if(spaceId&&activeStudySpaceMeta)studySpaceMetaById.set(spaceId,activeStudySpaceMeta);dynamicSpaceId=key;state.currentRoom=key;transientCode='';dynamicContext={name:'',type:'',text:'',source:'',ephemeral:false,updatedAt:''};if(typeof saveDemoSession==='function')saveDemoSession({currentRoom:key,lastView:'runtime',activeStudySpaceId:activeStudySpaceId||null});
-    const saved=getSpaceState(),savedContext=saved.context||{};dynamicContext={...dynamicContext,...savedContext,text:''};const roomGoal=String(activeStudySpaceMeta?.prompt||activeStudySpaceMeta?.title||'');const preferConversation=key==='language'&&/(비즈니스\s*영어|영어\s*회화|외국어\s*말하기|회화|말하기|롤플레이|role.?play|conversation|interview|면접|미팅|회의|협상)/i.test(roomGoal);const localSeed=schemaForRoom(key),initialSchema=preferConversation&&saved.schema?.study_type==='recall'?localSeed:(saved.schema||localSeed);dynamicSchema=normalizeSchema(initialSchema,localSeed);engineSource=saved.schema&&!preferConversation?'SAVED DYNAMIC SCHEMA':'ROOM GOAL → DYNAMIC SCHEMA';
-    document.body.dataset.runtimeRoom='dynamic';updateProtocolUI();renderDynamicLayout();switchView('runtime');syncRuntimeBackButton();if(activeStudySpaceId&&readDemoProfile())enterRoomVisit(activeStudySpaceId).catch(err=>showToast(err?.message||'학습방 체류 기록을 시작하지 못했어요.'));loadLocalActionCatalog().then(()=>renderDynamicLayout());
-    if(activeStudySpaceId&&readDemoProfile()){apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(activeStudySpaceId)}/state`).then(remote=>{if(!remote||(!remote.schema&&!remote.context&&!remote.workspace))return;const id=stateStorageId(),store=readDynamicStore(),remoteSchema=preferConversation&&remote.schema?.study_type==='recall'?schemaForRoom('language'):(remote.schema||dynamicSchema);store[id]=sanitizeStoredEntry({schema:remoteSchema,context:remote.context||dynamicContext,workspace:{...defaultWorkspace(),...(remote.workspace||{})}});writeDynamicStore(store);dynamicContext={...dynamicContext,...(store[id].context||{}),text:''};dynamicSchema=normalizeSchema(store[id].schema||schemaForRoom(key),schemaForRoom(key));engineSource='저장된 학습방과 동기화됨';updateProtocolUI();renderDynamicLayout()}).catch(()=>{})}
+    const saved=getSpaceState(),savedContext=saved.context||{};dynamicContext={...dynamicContext,...savedContext,text:''};const roomGoal=String(activeStudySpaceMeta?.prompt||activeStudySpaceMeta?.title||'');const preferConversation=key==='language'&&/(비즈니스\s*영어|영어\s*회화|외국어\s*말하기|회화|말하기|롤플레이|role.?play|conversation|interview|면접|미팅|회의|협상)/i.test(roomGoal);const localSeed=manifestForRoom(key),savedManifest=saved.manifest?normalizeSceneManifest(saved.manifest,localSeed):null;const initialManifest=preferConversation&&savedManifest?.activity==='recall'?localSeed:(savedManifest||localSeed);roomManifest=normalizeSceneManifest(initialManifest,localSeed);engineSource=savedManifest&&!preferConversation?'SAVED SCENE MANIFEST':'ROOM GOAL → SCENE MANIFEST';
+    document.body.dataset.runtimeRoom='dynamic';updateRuntimeMetadata();renderStudyRuntime();switchView('runtime');syncRuntimeBackButton();if(activeStudySpaceId&&readDemoProfile())enterRoomVisit(activeStudySpaceId).catch(err=>showToast(err?.message||'학습방 체류 기록을 시작하지 못했어요.'));loadLocalActionCatalog().then(()=>renderStudyRuntime());
+    if(activeStudySpaceId&&readDemoProfile()){apiFetch(`${STUDYWORLD_SETTINGS.endpoints.studySpaces}/${encodeURIComponent(activeStudySpaceId)}/state`).then(remote=>{if(!remote||(!remote.schema&&!remote.context&&!remote.workspace))return;const id=stateStorageId(),store=readDynamicStore(),remoteManifest=normalizeSceneManifest(remote.schema||roomManifest,localSeed);store[id]=sanitizeStoredEntry({manifest:preferConversation&&remoteManifest.activity==='recall'?manifestForRoom('language'):remoteManifest,context:remote.context||dynamicContext,workspace:{...defaultWorkspace(),...(remote.workspace||{})}});writeDynamicStore(store);dynamicContext={...dynamicContext,...(store[id].context||{}),text:''};roomManifest=normalizeSceneManifest(store[id].manifest||manifestForRoom(key),manifestForRoom(key));engineSource='저장된 학습방과 동기화됨';updateRuntimeMetadata();renderStudyRuntime()}).catch(()=>{})}
   };
   window.openRoom=openRoom;
-  window.studyworldDynamicEngine={protocol:DYNAMIC_UI_PROTOCOL,applyIntent,getSchema:()=>dynamicSchema,getContext:()=>({...dynamicContext,text:dynamicContext.text?'[ephemeral source loaded]':''}),openSpace:openRoom};
+  window.studyworldDynamicEngine={protocol:STUDY_ROOM_PROTOCOL,applyIntent,getManifest:()=>roomManifest,getContext:()=>({...dynamicContext,text:dynamicContext.text?'[ephemeral source loaded]':''}),getEngines:()=>engineRegistry.ids(),openSpace:openRoom};
 })();
 
 
