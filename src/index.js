@@ -189,6 +189,12 @@ async function api(request, env) {
   match = path.match(/^\/api\/v1\/study-spaces\/([^/]+)\/leave$/);
   if (match && request.method === 'POST') return json(await rooms.leave(profile, decodeURIComponent(match[1])));
 
+  match = path.match(/^\/api\/v1\/study-spaces\/([^/]+)\/enter$/);
+  if (match && request.method === 'POST') return json(await rooms.enter(profile, decodeURIComponent(match[1])));
+
+  match = path.match(/^\/api\/v1\/study-spaces\/([^/]+)\/exit$/);
+  if (match && request.method === 'POST') return json(await rooms.exit(profile, decodeURIComponent(match[1]), await readJson(request)));
+
   match = path.match(/^\/api\/v1\/study-spaces\/([^/]+)\/members\/([^/]+)\/kick$/);
   if (match && request.method === 'POST') return json(await rooms.kick(profile, decodeURIComponent(match[1]), decodeURIComponent(match[2])));
 

@@ -53,7 +53,7 @@ for (const path of files) {
   }
 }
 
-for (const required of ['0001_initial.sql', '0002_learning_preference_signals.sql']) {
+for (const required of ['0001_initial.sql', '0002_learning_preference_signals.sql', '0003_study_room_visits.sql']) {
   try { await access(new URL(`../migrations/${required}`, import.meta.url)); }
   catch { fail(`migrations/${required} 누락`); }
 }

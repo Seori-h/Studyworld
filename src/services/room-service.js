@@ -19,21 +19,23 @@ export class RoomService {
   async listFor(profile) {
     await this.expirePendingDeletes(profile.id);
     const owned = await this.db.prepare(`
-      SELECT id,space_kind AS spaceKind,template_key AS templateKey,title,prompt,category,description,meta_label AS meta,
-             visibility,discoverable,status,created_at AS createdAt,updated_at AS updatedAt,recovery_expires_at AS recoveryExpiresAt
-      FROM study_spaces
-      WHERE owner_profile_id=? AND status IN ('active','deleted_pending')
-      ORDER BY CASE space_kind WHEN 'personal' THEN 0 ELSE 1 END, created_at DESC
-    `).bind(profile.id).all();
+      SELECT s.id,s.space_kind AS spaceKind,s.template_key AS templateKey,s.title,s.prompt,s.category,s.description,s.meta_label AS meta,
+             s.visibility,s.discoverable,s.status,s.created_at AS createdAt,s.updated_at AS updatedAt,s.recovery_expires_at AS recoveryExpiresAt,
+             COALESCE((SELECT SUM(v.duration_seconds) FROM study_room_visits v WHERE v.space_id=s.id AND v.profile_id=? AND v.exited_at IS NOT NULL),0) AS totalStudySeconds
+      FROM study_spaces s
+      WHERE s.owner_profile_id=? AND s.status IN ('active','deleted_pending')
+      ORDER BY CASE s.space_kind WHEN 'personal' THEN 0 ELSE 1 END, s.created_at DESC
+    `).bind(profile.id, profile.id).all();
     const joined = await this.db.prepare(`
       SELECT s.id,s.space_kind AS spaceKind,s.template_key AS templateKey,s.title,s.category,s.description,s.meta_label AS meta,
-             s.visibility,m.role,m.joined_at AS joinedAt,p.nickname AS ownerNickname
+             s.visibility,m.role,m.joined_at AS joinedAt,p.nickname AS ownerNickname,
+             COALESCE((SELECT SUM(v.duration_seconds) FROM study_room_visits v WHERE v.space_id=s.id AND v.profile_id=? AND v.exited_at IS NOT NULL),0) AS totalStudySeconds
       FROM space_members m
       JOIN study_spaces s ON s.id=m.space_id
       JOIN profiles p ON p.id=s.owner_profile_id
       WHERE m.profile_id=? AND m.status='active' AND s.owner_profile_id<>? AND s.status='active'
       ORDER BY m.joined_at DESC LIMIT 5
-    `).bind(profile.id, profile.id).all();
+    `).bind(profile.id, profile.id, profile.id).all();
     const quota = await this.db.prepare('SELECT cycle_started_at,next_allowed_at,correction_used,correction_available FROM room_creation_state WHERE profile_id=?')
       .bind(profile.id).first();
     return {
@@ -233,6 +235,77 @@ export class RoomService {
       .bind(profile.id, id, profile.id).first();
     if (!access) throw new HttpError(403, 'ROOM_ACCESS_DENIED', '이 스터디룸에 접근할 권한이 없습니다.');
     return access;
+  }
+
+
+  async enter(profile, id) {
+    await this.assertRoomAccess(profile, id);
+    const existing = await this.db.prepare('SELECT id,space_id,entered_at FROM study_room_visits WHERE profile_id=? AND exited_at IS NULL ORDER BY entered_at DESC LIMIT 1')
+      .bind(profile.id).first();
+
+    if (existing?.space_id === id) {
+      return { visitId: existing.id, spaceId: id, enteredAt: existing.entered_at, resumed: true };
+    }
+
+    const now = new Date().toISOString();
+    if (existing) {
+      const durationSeconds = Math.max(0, Math.floor((Date.parse(now) - Date.parse(existing.entered_at)) / 1000));
+      await this.db.prepare("UPDATE study_room_visits SET exited_at=?,duration_seconds=?,exit_reason='switch_room' WHERE id=? AND profile_id=? AND exited_at IS NULL")
+        .bind(now, durationSeconds, existing.id, profile.id).run();
+    }
+
+    const visitId = crypto.randomUUID();
+    try {
+      await this.db.prepare('INSERT INTO study_room_visits (id,space_id,profile_id,entered_at,duration_seconds) VALUES (?,?,?,?,0)')
+        .bind(visitId, id, profile.id, now).run();
+    } catch (error) {
+      if (String(error?.message || '').includes('UNIQUE')) {
+        const concurrent = await this.db.prepare('SELECT id,space_id,entered_at FROM study_room_visits WHERE profile_id=? AND exited_at IS NULL ORDER BY entered_at DESC LIMIT 1')
+          .bind(profile.id).first();
+        if (concurrent?.space_id === id) return { visitId: concurrent.id, spaceId: id, enteredAt: concurrent.entered_at, resumed: true };
+        throw new HttpError(409, 'ROOM_VISIT_CONFLICT', '다른 학습방 입장 기록이 처리 중입니다. 다시 시도해 주세요.');
+      }
+      throw error;
+    }
+
+    return { visitId, spaceId: id, enteredAt: now, resumed: false };
+  }
+
+  async exit(profile, id, payload = {}) {
+    const visitId = cleanText(payload.visitId || '', 80, 'visitId');
+    if (!visitId) throw new HttpError(400, 'VISIT_ID_REQUIRED', '퇴장할 학습방 방문 기록이 필요합니다.');
+    const reason = requireEnum(cleanText(payload.reason || 'manual', 32, 'reason') || 'manual', ['manual', 'switch_room', 'pagehide', 'navigation', 'planet_exit'], 'reason');
+
+    const visit = await this.db.prepare('SELECT id,space_id,profile_id,entered_at,exited_at,duration_seconds FROM study_room_visits WHERE id=? AND space_id=? AND profile_id=? LIMIT 1')
+      .bind(visitId, id, profile.id).first();
+    if (!visit) throw new HttpError(404, 'ROOM_VISIT_NOT_FOUND', '학습방 방문 기록을 찾을 수 없습니다.');
+
+    if (!visit.exited_at) {
+      const exitedAt = new Date().toISOString();
+      const durationSeconds = Math.max(0, Math.floor((Date.parse(exitedAt) - Date.parse(visit.entered_at)) / 1000));
+      const result = await this.db.prepare('UPDATE study_room_visits SET exited_at=?,duration_seconds=?,exit_reason=? WHERE id=? AND space_id=? AND profile_id=? AND exited_at IS NULL')
+        .bind(exitedAt, durationSeconds, reason, visitId, id, profile.id).run();
+      if (result.meta?.changes) {
+        visit.exited_at = exitedAt;
+        visit.duration_seconds = durationSeconds;
+      } else {
+        const latest = await this.db.prepare('SELECT exited_at,duration_seconds FROM study_room_visits WHERE id=? AND space_id=? AND profile_id=? LIMIT 1')
+          .bind(visitId, id, profile.id).first();
+        visit.exited_at = latest?.exited_at || exitedAt;
+        visit.duration_seconds = Number(latest?.duration_seconds || 0);
+      }
+    }
+
+    const total = await this.db.prepare('SELECT COALESCE(SUM(duration_seconds),0) AS total FROM study_room_visits WHERE space_id=? AND profile_id=? AND exited_at IS NOT NULL')
+      .bind(id, profile.id).first();
+    return {
+      exited: true,
+      visitId,
+      spaceId: id,
+      exitedAt: visit.exited_at,
+      durationSeconds: Number(visit.duration_seconds || 0),
+      totalStudySeconds: Number(total?.total || 0),
+    };
   }
 
   async getState(profile, id) {
