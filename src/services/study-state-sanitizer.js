@@ -1,15 +1,19 @@
 import { personaById, PERSONA_IDS } from './ai-personas.js';
 import { redactSensitiveText } from './ai-context-service.js';
 
-const STUDY_TYPES = new Set(['coding', 'recall', 'brainstorm', 'reading']);
+const ACTIVITIES = new Set(['coding', 'recall', 'brainstorm', 'reading', 'conversation']);
+const ENGINES = new Set(['code_workbench', 'recall_deck', 'idea_canvas', 'focus_reader', 'dialogue_stage']);
+const COMPONENTS = new Set(['code_editor', 'static_terminal', 'mission_board', 'recall_card', 'recall_draft', 'memory_map', 'idea_nodes', 'reader_document', 'field_notes', 'dialogue_choices']);
+const INTERACTIONS = new Set(['hint', 'quiz', 'reply']);
 const TIMER_TYPES = new Set(['pomodoro', 'feynman_pomodoro']);
 const BGM_TYPES = new Set(['quiet_focus', 'lofi_cyber']);
 const PERSONA_SET = new Set(PERSONA_IDS);
-const MODE_PROTOCOL = Object.freeze({
-  coding: Object.freeze({ layout: 'split_view', persona: 'code_coach' }),
-  recall: Object.freeze({ layout: 'flashcard', persona: 'recall_coach' }),
-  brainstorm: Object.freeze({ layout: 'canvas', persona: 'brainstorm_partner' }),
-  reading: Object.freeze({ layout: 'focus_reader', persona: 'reading_guide' }),
+const ENGINE_COMPONENTS = Object.freeze({
+  code_workbench: Object.freeze(['code_editor', 'static_terminal', 'mission_board']),
+  recall_deck: Object.freeze(['recall_card', 'recall_draft', 'memory_map']),
+  idea_canvas: Object.freeze(['idea_nodes']),
+  focus_reader: Object.freeze(['reader_document', 'field_notes']),
+  dialogue_stage: Object.freeze(['dialogue_choices']),
 });
 
 function cleanText(value, max = 4000) {
@@ -37,29 +41,76 @@ function cleanStringArray(value, { maxItems = 20, maxChars = 500 } = {}) {
   return value.slice(0, maxItems).map((item) => cleanText(item, maxChars)).filter(Boolean);
 }
 
-function sanitizeSchema(raw = {}) {
-  const study = STUDY_TYPES.has(raw?.study_type) ? raw.study_type : 'brainstorm';
-  const protocol = MODE_PROTOCOL[study];
+function manifestPreset(activity) {
+  const presets = {
+    coding: { engine: 'code_workbench', environment: 'code_lab', persona: 'code_coach', components: ENGINE_COMPONENTS.code_workbench, interactions: ['hint', 'quiz'], capabilities: { code_editor: true, terminal: true, timer_type: null, bgm_recommendation: 'lofi_cyber' } },
+    recall: { engine: 'recall_deck', environment: 'memory_chamber', persona: 'recall_coach', components: ENGINE_COMPONENTS.recall_deck, interactions: ['hint', 'quiz'], capabilities: { code_editor: false, terminal: false, timer_type: 'feynman_pomodoro', bgm_recommendation: null } },
+    brainstorm: { engine: 'idea_canvas', environment: 'idea_field', persona: 'brainstorm_partner', components: ENGINE_COMPONENTS.idea_canvas, interactions: ['hint', 'quiz'], capabilities: { code_editor: false, terminal: false, timer_type: null, bgm_recommendation: 'quiet_focus' } },
+    reading: { engine: 'focus_reader', environment: 'quiet_archive', persona: 'reading_guide', components: ENGINE_COMPONENTS.focus_reader, interactions: ['hint', 'quiz'], capabilities: { code_editor: false, terminal: false, timer_type: null, bgm_recommendation: null } },
+    conversation: { engine: 'dialogue_stage', environment: 'roleplay_zone', persona: 'conversation_coach', components: ENGINE_COMPONENTS.dialogue_stage, interactions: ['hint', 'quiz', 'reply'], capabilities: { code_editor: false, terminal: false, timer_type: null, bgm_recommendation: null } },
+  };
+  const selected = presets[activity] || presets.brainstorm;
+  const persona = personaById(selected.persona);
+  return {
+    manifest_version: '2.0',
+    activity: ACTIVITIES.has(activity) ? activity : 'brainstorm',
+    scene: { id: 'primary', engine_id: selected.engine, environment: selected.environment, components: [...selected.components] },
+    interactions: [...selected.interactions],
+    capabilities: { ...selected.capabilities },
+    persona: { id: persona.id, role: persona.role, system_prompt: persona.systemPrompt },
+  };
+}
+
+function legacyToManifest(raw = {}) {
+  const activity = ACTIVITIES.has(raw.study_type) ? raw.study_type : 'brainstorm';
+  const base = manifestPreset(activity);
   const tools = raw?.active_tools && typeof raw.active_tools === 'object' ? raw.active_tools : {};
   const requestedPersona = raw?.ai_persona?.id;
-  const personaId = PERSONA_SET.has(requestedPersona) && requestedPersona === protocol.persona ? requestedPersona : protocol.persona;
-  const persona = personaById(personaId);
-  const timer = TIMER_TYPES.has(tools.timer_type) ? tools.timer_type : null;
-  const bgm = BGM_TYPES.has(tools.bgm_recommendation) ? tools.bgm_recommendation : null;
+  const persona = personaById(PERSONA_SET.has(requestedPersona) ? requestedPersona : base.persona.id);
   return {
-    study_type: study,
-    layout_mode: protocol.layout,
-    active_tools: {
-      code_editor: study === 'coding' && cleanBool(tools.code_editor),
-      terminal: study === 'coding' && cleanBool(tools.terminal),
-      timer_type: timer,
-      bgm_recommendation: bgm,
+    ...base,
+    capabilities: {
+      ...base.capabilities,
+      code_editor: cleanBool(tools.code_editor) || base.capabilities.code_editor,
+      terminal: cleanBool(tools.terminal) || base.capabilities.terminal,
+      timer_type: TIMER_TYPES.has(tools.timer_type) ? tools.timer_type : base.capabilities.timer_type,
+      bgm_recommendation: BGM_TYPES.has(tools.bgm_recommendation) ? tools.bgm_recommendation : base.capabilities.bgm_recommendation,
     },
-    ai_persona: {
-      id: persona.id,
-      role: persona.role,
-      system_prompt: persona.systemPrompt,
+    persona: { id: persona.id, role: persona.role, system_prompt: persona.systemPrompt },
+  };
+}
+
+function sanitizeManifest(raw = {}) {
+  if (!raw || typeof raw !== 'object') raw = {};
+  if (!raw.scene && raw.study_type) raw = legacyToManifest(raw);
+  const activity = ACTIVITIES.has(raw.activity) ? raw.activity : 'brainstorm';
+  const fallback = manifestPreset(activity);
+  const engineId = ENGINES.has(raw.scene?.engine_id) ? raw.scene.engine_id : fallback.scene.engine_id;
+  const supported = new Set(ENGINE_COMPONENTS[engineId] || []);
+  const requestedComponents = Array.isArray(raw.scene?.components) ? raw.scene.components : [];
+  const components = [...new Set(requestedComponents.filter((item) => COMPONENTS.has(item) && supported.has(item)))].slice(0, 10);
+  const requestedInteractions = Array.isArray(raw.interactions) ? raw.interactions : [];
+  const interactions = [...new Set(requestedInteractions.filter((item) => INTERACTIONS.has(item)))].slice(0, 3);
+  const capabilities = raw.capabilities && typeof raw.capabilities === 'object' ? raw.capabilities : {};
+  const requestedPersona = raw.persona?.id;
+  const persona = personaById(PERSONA_SET.has(requestedPersona) ? requestedPersona : fallback.persona.id);
+  return {
+    manifest_version: '2.0',
+    activity,
+    scene: {
+      id: cleanText(raw.scene?.id || 'primary', 80) || 'primary',
+      engine_id: engineId,
+      environment: cleanText(raw.scene?.environment || fallback.scene.environment, 80) || fallback.scene.environment,
+      components: components.length ? components : [...ENGINE_COMPONENTS[engineId]],
     },
+    interactions: interactions.length ? interactions : [...fallback.interactions],
+    capabilities: {
+      code_editor: cleanBool(capabilities.code_editor),
+      terminal: cleanBool(capabilities.terminal),
+      timer_type: TIMER_TYPES.has(capabilities.timer_type) ? capabilities.timer_type : null,
+      bgm_recommendation: BGM_TYPES.has(capabilities.bgm_recommendation) ? capabilities.bgm_recommendation : null,
+    },
+    persona: { id: persona.id, role: persona.role, system_prompt: persona.systemPrompt },
   };
 }
 
@@ -128,7 +179,30 @@ function sanitizeCodeReview(value) {
   };
 }
 
+function sanitizeLocalQuiz(value) {
+  if (!value || typeof value !== 'object') return null;
+  const options = cleanStringArray(value.options, { maxItems: 6, maxChars: 240 });
+  const selectedRaw = value.selected;
+  const selected = selectedRaw === null || selectedRaw === undefined ? null : cleanInt(selectedRaw, 0, Math.max(0, options.length - 1), 0);
+  return {
+    question: cleanText(value.question, 400),
+    options,
+    answer: cleanInt(value.answer, 0, Math.max(0, options.length - 1), 0),
+    explanation: cleanText(value.explanation, 600),
+    selected,
+  };
+}
+
+function sanitizeConversationHistory(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(-40).map((item) => ({
+    role: ['user', 'assistant', 'npc'].includes(item?.role) ? item.role : 'npc',
+    text: cleanText(item?.text || item?.content, 1200),
+  })).filter((item) => item.text);
+}
+
 function sanitizeWorkspace(raw = {}, { ephemeralSource = false } = {}) {
+  const cursorRaw = raw?.localActionCursor && typeof raw.localActionCursor === 'object' ? raw.localActionCursor : {};
   const workspace = {
     reviewRequest: cleanText(raw?.reviewRequest, 4000),
     terminal: cleanStringArray(raw?.terminal, { maxItems: 20, maxChars: 500 }),
@@ -144,6 +218,15 @@ function sanitizeWorkspace(raw = {}, { ephemeralSource = false } = {}) {
     aiSummary: sanitizeAiSummary(raw?.aiSummary),
     aiParagraphExplain: sanitizeParagraphExplain(raw?.aiParagraphExplain),
     aiCodeReview: sanitizeCodeReview(raw?.aiCodeReview),
+    conversationHistory: sanitizeConversationHistory(raw?.conversationHistory),
+    conversationFeedback: cleanOptionalText(raw?.conversationFeedback, 1200),
+    diegeticMessage: cleanText(raw?.diegeticMessage, 1200),
+    localActionCursor: {
+      hint: cleanInt(cursorRaw.hint, 0, 10000, 0),
+      quiz: cleanInt(cursorRaw.quiz, 0, 10000, 0),
+    },
+    localQuiz: sanitizeLocalQuiz(raw?.localQuiz),
+    localConversationStep: cleanInt(raw?.localConversationStep, 0, 10000, 0),
   };
   if (!ephemeralSource) workspace.code = cleanText(raw?.code, 50000);
   return workspace;
@@ -153,7 +236,8 @@ export function sanitizePersistentStudyState(payload = {}) {
   const rawContext = payload?.context && typeof payload.context === 'object' ? payload.context : {};
   const ephemeralSource = rawContext.ephemeral === true || rawContext.source === 'upload';
   return {
-    schema: sanitizeSchema(payload?.schema && typeof payload.schema === 'object' ? payload.schema : {}),
+    // `schema` remains the storage/API envelope for compatibility; its content is now a v2 Scene Manifest.
+    schema: sanitizeManifest(payload?.schema && typeof payload.schema === 'object' ? payload.schema : {}),
     context: sanitizeContext(rawContext),
     workspace: sanitizeWorkspace(payload?.workspace && typeof payload.workspace === 'object' ? payload.workspace : {}, { ephemeralSource }),
   };

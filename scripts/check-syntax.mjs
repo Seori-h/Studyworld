@@ -15,7 +15,7 @@ function walk(dir) {
 for (const root of roots) walk(root);
 for (const file of files) execFileSync(process.execPath, ['--check', file], { stdio: 'inherit' });
 const html = readFileSync('public/index.html', 'utf8');
-for (const required of ['/assets/styles.css', '/assets/app.js', '/favicon-32.png', '/manifest.webmanifest']) {
+for (const required of ['/assets/styles.css', '/assets/study-runtime.js', '/assets/app.js', '/favicon-32.png', '/manifest.webmanifest']) {
   if (!html.includes(required)) throw new Error(`Missing HTML reference: ${required}`);
 }
 if (/<script(?![^>]*\bsrc=)/i.test(html)) throw new Error('Inline script detected: CSP would block it.');

@@ -2,14 +2,34 @@ import { PERSONA_IDS } from './ai-personas.js';
 
 const noExtra = { additionalProperties: false };
 
-export const INTENT_SCHEMA = Object.freeze({
+export const STUDY_MANIFEST_SCHEMA = Object.freeze({
   type: 'object',
   ...noExtra,
   properties: {
-    study_type: { type: 'string', enum: ['coding', 'recall', 'brainstorm', 'reading'] },
-    layout_mode: { type: 'string', enum: ['split_view', 'flashcard', 'canvas', 'focus_reader'] },
+    activity: { type: 'string', enum: ['coding', 'recall', 'brainstorm', 'reading', 'conversation'] },
+    scene: {
+      type: 'object',
+      ...noExtra,
+      properties: {
+        engine_id: { type: 'string', enum: ['code_workbench', 'recall_deck', 'idea_canvas', 'focus_reader', 'dialogue_stage'] },
+        environment: { type: 'string' },
+        components: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 10,
+          items: { type: 'string', enum: ['code_editor', 'static_terminal', 'mission_board', 'recall_card', 'recall_draft', 'memory_map', 'idea_nodes', 'reader_document', 'field_notes', 'dialogue_choices'] },
+        },
+      },
+      required: ['engine_id', 'environment', 'components'],
+    },
+    interactions: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 3,
+      items: { type: 'string', enum: ['hint', 'quiz', 'reply'] },
+    },
     persona_id: { type: 'string', enum: PERSONA_IDS },
-    active_tools: {
+    capabilities: {
       type: 'object',
       ...noExtra,
       properties: {
@@ -22,8 +42,11 @@ export const INTENT_SCHEMA = Object.freeze({
     },
     rationale: { type: 'string' },
   },
-  required: ['study_type', 'layout_mode', 'persona_id', 'active_tools', 'rationale'],
+  required: ['activity', 'scene', 'interactions', 'persona_id', 'capabilities', 'rationale'],
 });
+
+// Backward-compatible export name for internal imports during the protocol transition.
+export const INTENT_SCHEMA = STUDY_MANIFEST_SCHEMA;
 
 export const ACTION_SCHEMAS = Object.freeze({
   flashcards: {
