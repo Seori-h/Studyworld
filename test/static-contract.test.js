@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 const app = await readFile(new URL('../public/assets/app.js', import.meta.url), 'utf8');
+const localActions = await readFile(new URL('../public/assets/study-actions.json', import.meta.url), 'utf8');
 
 test('favicon/PWA assets are wired into the deployable HTML', () => {
   assert.match(html, /favicon-32\.png/);
@@ -47,17 +48,22 @@ test('dynamic study engine sends ephemeral source context to server AI but strip
 });
 
 
-test('dynamic AI UI gives explicit provider-forwarding notice and keeps room-modification quota opt-in', () => {
-  assert.match(html, /AI 분석을 요청하면 필요한 텍스트 구간 또는 PDF 파일이 설정된 AI 제공자에 일시 전송될 수 있습니다/);
-  assert.match(app, /roomModification:Boolean\(roomModification&&!preview&&activeStudySpaceId\)/);
-  assert.match(app, /roomModificationArmed=true/);
-  assert.match(app, /DEFAULT_DYNAMIC_PLACEHOLDER/);
+test('immersive runtime removes the exposed AI command bar and uses local action data', () => {
+  assert.doesNotMatch(html, /id="dynamicCommandDock"/);
+  assert.doesNotMatch(html, /id="dynamicCommandInput"/);
+  assert.doesNotMatch(html, /id="modifyRoom"/);
+  assert.match(app, /LOCAL_ACTIONS_URL='\/assets\/study-actions\.json'/);
+  assert.match(app, /data-local-action=\"hint\"/);
+  assert.match(app, /data-local-action=\"quiz\"/);
+  assert.match(localActions, /"hint"/);
+  assert.match(localActions, /"quiz"/);
 });
 
 
-test('pre-AI learning UI never presents heuristic output as generated AI output', () => {
-  assert.match(app, /로컬 미리보기 카드/);
-  assert.match(app, /아직 AI 요약을 생성하지 않았습니다/);
+test('fixed learning actions stay local and never masquerade as generated AI output', () => {
+  assert.match(app, /FIELD QUIZ · LOCAL/);
+  assert.match(app, /source:'static_json'/);
+  assert.match(app, /ensureAiMaterialForLayout\(\)\{return null\}/);
   assert.match(app, /STATIC CHECK · 실제 실행 아님/);
   assert.doesNotMatch(app, /local check passed/);
 });
@@ -69,11 +75,12 @@ test('personal language rooms use conversation mode and do not force the Tokyo c
   assert.doesNotMatch(app, /language:\{recipe:'REC009',title:'도쿄 편의점 롤플레이'/);
 });
 
-test('planet and room exits expose live stay time instead of trapping an entered session', () => {
+test('planet and room exits expose live stay time without a top control panel', () => {
   assert.match(html, /id="profileSessionTime"/);
   assert.match(html, /id="profileLockKey"[^>]*>🪐 행성 퇴장/);
-  assert.match(html, /id="runtimeVisitTime"/);
-  assert.match(html, /id="runtimeBack"[^>]*>← 이전 화면/);
+  assert.doesNotMatch(html, /class="runtime-head"/);
+  assert.match(app, /id=\"runtimeVisitTime\"/);
+  assert.match(app, /id=\"runtimeBack\"/);
   assert.match(app, /returnFromRuntime/);
   assert.match(app, /runtimeBackLabel/);
   assert.match(app, /\/enter/);
@@ -109,12 +116,14 @@ test('study room UI does not expose internal learning-pattern or schema controls
   assert.doesNotMatch(html, />Activity</i);
   assert.doesNotMatch(html, />Assessment</i);
   assert.doesNotMatch(html, /Agent \/ Assessment/);
+  assert.match(app, /dyn-diegetic-npc/);
+  assert.doesNotMatch(app, /dynamicSchemaJson/);
 });
 
 test('public room identity survives template reuse and never falls back to a different room title', () => {
   assert.match(app, /openRoom\(room,spaceId,exactMeta\)/);
   assert.match(app, /resolveStudySpaceMeta\(spaceId,exactMeta\)/);
-  assert.match(app, /#rtTitle'\)\.textContent=meta\?\.title\|\|r\.title/);
+  assert.match(app, /title:meta\?\.title\|\|r\.title/);
 });
 
 test('planet-key restore always opens and refreshes the authenticated My Planet service page', () => {

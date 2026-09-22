@@ -371,29 +371,7 @@
 </section>
 
 <section class="view" id="view-runtime">
-<div class="runtime-shell">
-  <div class="runtime-head">
-    <div class="runtime-title"><div class="runtime-avatar" id="rtIcon">📖</div><div><h1 id="rtTitle"></h1><p id="rtSub"></p><div class="runtime-chips" id="rtChips"></div></div></div>
-    <div class="runtime-actions"><span class="runtime-visit-time" id="runtimeVisitTime" aria-live="polite">체류 00:00</span><button class="ghost" id="runtimeBack" type="button">← 이전 화면</button><button class="pill" id="modifyRoom">학습방 바꾸기</button></div>
-  </div>
-  <section class="dynamic-command-dock" id="dynamicCommandDock" hidden aria-label="학습방 맞춤 설정">
-    <div class="dynamic-command-main">
-      <div class="dynamic-mode-meta">
-        <span class="dynamic-live-dot" aria-hidden="true"></span>
-        <div><small>현재 학습 방식</small><strong id="dynamicModeLabel">학습 방식 준비 중</strong></div>
-      </div>
-      <form class="dynamic-command-form" id="dynamicCommandForm">
-        <input id="dynamicCommandInput" autocomplete="off" placeholder="예: 회화 연습 중심으로 바꾸고, 피드백은 대화가 끝난 뒤 해줘" aria-label="현재 학습방을 원하는 방식으로 변경">
-        <button type="submit">적용</button>
-      </form>
-      <div class="dynamic-command-actions">
-        <label class="dynamic-upload-btn" for="dynamicContextFile">＋ 자료</label>
-        <input id="dynamicContextFile" type="file" accept=".js,.jsx,.ts,.tsx,.py,.json,.csv,.md,.txt,.pdf" hidden>
-      </div>
-    </div>
-    <p class="dynamic-ai-privacy-note" id="dynamicAiPrivacyNote">업로드 원문은 STUDYWORLD DB에 저장하지 않습니다. AI 분석을 요청하면 필요한 텍스트 구간 또는 PDF 파일이 설정된 AI 제공자에 일시 전송될 수 있습니다. 비밀번호·API 키·행성 열쇠 같은 비밀정보는 업로드하지 마세요.</p>
-    <div class="dynamic-context-suggestion" id="dynamicContextSuggestion" hidden></div>
-  </section>
+<div class="runtime-shell immersive-runtime-shell">
   <div class="runtime-area dynamic-runtime-area" id="runtimeArea"></div>
 </div>
 </section>
